@@ -14,7 +14,7 @@ crate-type = ["dylib", "rlib"]
 
 [dependencies]
 mcrust = { path = "C:/Users/y64/Desktop/McRust/RustSrc" }
-yacl = { path = "C:/Users/y64/AppData/Local/Temp/claude/c--Users-y64-Desktop-McRust/b63c15a5-b680-4c4e-b573-c89b7f994ba8/scratchpad/f2s_yacl" }
+yacl = { path = "C:/Users/y64/Desktop/McRust/mods-src/yacl" }
 # used by the translated classes (fabric2seer)
 fancy-regex = "0.14"
 parking_lot = "0.12"
