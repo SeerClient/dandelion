@@ -1,0 +1,10 @@
+{
+  "crate": "dandelion",
+  "mod_id": "dandelion",
+  "depends": [
+    [
+      "yacl",
+      "C:\\Users\\y64\\AppData\\Local\\Temp\\claude\\c--Users-y64-Desktop-McRust\\b63c15a5-b680-4c4e-b573-c89b7f994ba8\\scratchpad\\f2s_yacl"
+    ]
+  ]
+}
