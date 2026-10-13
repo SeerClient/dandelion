@@ -1,48 +1,35 @@
-//! Ported from net.azureaaron.dandelion.api.OptionAdder by fabric2seer.
+//! Ported from net.azureaaron.dandelion.api.OptionAdder.
+//!
+//! Builders are values (`fn x(self, ..) -> Self`, PATTERNS_Y2 P2): Java's `return this` is returning `self`, so the
+//! `ConfigCategory.Builder` / `OptionGroup.Builder` overrides that only narrow the return type (`OptionAdder.super
+//! .optionIf(..); return this;`) are these defaults.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
+use crate::net::azureaaron::dandelion::api::option::AnyOption;
 
 /// java: public sealed interface OptionAdder permits ConfigCategory.Builder, OptionGroup.Builder
-pub trait OptionAdder: compat::DynAny {
-    fn as_any(&self) -> &dyn std::any::Any;
-    /// java: OptionAdder option(Option<?> option); (dispatch: the body for this class)
-    fn option(&self) -> fn(&compat::Shared<dyn OptionAdder>, &compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>) -> compat::Shared<dyn OptionAdder>;
+pub trait OptionAdder: Sized {
+    /// java: OptionAdder option(Option<?> option);
+    fn option(self, option: Arc<dyn AnyOption>) -> Self;
 
-    /// java: default OptionAdder optionIf(boolean condition, Option<?> option) (dispatch: the body for this class)
-    fn option_if(&self) -> fn(&compat::Shared<dyn OptionAdder>, bool, &compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>) -> compat::Shared<dyn OptionAdder> {
-        <dyn OptionAdder>::option_if_body
-    }
-
-    /// java: default OptionAdder optionIf(boolean condition, Supplier<Option<?>> option) (dispatch: the body for this class)
-    fn option_if_boolean_supplier(&self) -> fn(&compat::Shared<dyn OptionAdder>, bool, Arc<dyn Fn() -> compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>>) -> compat::Shared<dyn OptionAdder> {
-        <dyn OptionAdder>::option_if_boolean_supplier_body
-    }
-
-    /// java: default OptionAdder options(List<? extends Option<?>> options) (dispatch: the body for this class)
-    fn options(&self) -> fn(&compat::Shared<dyn OptionAdder>, &Vec<compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>>) -> compat::Shared<dyn OptionAdder> {
-        <dyn OptionAdder>::options_body
-    }
-
-}
-
-impl dyn OptionAdder {
     /// java: default OptionAdder optionIf(boolean condition, Option<?> option)
-    pub fn option_if_body(__this: &compat::Shared<dyn OptionAdder>, mut condition: bool, option: &compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>) -> compat::Shared<dyn OptionAdder> {
-        return (if condition { ({ let __f = compat::dispatch(__this, |__t| __t.option()); __f(__this, option) }) } else { __this.clone() });
+    fn option_if(self, condition: bool, option: Arc<dyn AnyOption>) -> Self {
+        if condition { self.option(option) } else { self }
     }
 
     /// java: default OptionAdder optionIf(boolean condition, Supplier<Option<?>> option)
-    pub fn option_if_boolean_supplier_body(__this: &compat::Shared<dyn OptionAdder>, mut condition: bool, option: Arc<dyn Fn() -> compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>>) -> compat::Shared<dyn OptionAdder> {
-        return (if condition { ({ let __f = compat::dispatch(__this, |__t| __t.option()); __f(__this, &(option)()) }) } else { __this.clone() });
+    ///
+    /// Allows for an option to be created only when a condition is met.
+    fn option_if_boolean_supplier(self, condition: bool, option: impl FnOnce() -> Arc<dyn AnyOption>) -> Self {
+        if condition { self.option(option()) } else { self }
     }
 
     /// java: default OptionAdder options(List<? extends Option<?>> options)
-    pub fn options_body(__this: &compat::Shared<dyn OptionAdder>, options: &Vec<compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>>) -> compat::Shared<dyn OptionAdder> {
-        for option in options.iter() {
-            ({ let __f = compat::dispatch(__this, |__t| __t.option()); __f(__this, option) });
+    fn options(mut self, options: Vec<Arc<dyn AnyOption>>) -> Self {
+        for option in options {
+            self = self.option(option);
         }
-        return __this.clone();
+        self
     }
-
 }

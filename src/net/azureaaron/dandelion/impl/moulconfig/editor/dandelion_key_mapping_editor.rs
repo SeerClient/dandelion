@@ -154,7 +154,7 @@ impl KeyMappingComponent {
                     return true;
                 }
                 if mouse_x > (((width.wrapping_div(6)).wrapping_sub(24)).wrapping_add(48)).wrapping_sub(3) && mouse_x < ((((width.wrapping_div(6)).wrapping_sub(24)).wrapping_add(48)).wrapping_add(13)).wrapping_sub(5) && mouse_y > ((height.wrapping_sub(7)).wrapping_sub(14)).wrapping_add(3) && mouse_y < (((height.wrapping_sub(7)).wrapping_sub(14)).wrapping_add(3)).wrapping_add(11) {
-                    { let __s0 = self.key_mapping.get_default_key(); self.set_key(__s0) };
+                    { let __s0 = self.key_mapping.get_default_key().clone(); self.set_key(&__s0) };
                     return true;
                 }
             }
@@ -193,9 +193,10 @@ impl KeyMappingComponent {
 
     /// java: private void setKey(InputConstants.Key key)
     pub fn set_key(&mut self, key: &Key) {
+        // java: this.keyMapping.setKey(key); - the LIVE mapping is the one in `KeyMapping.ALL` (this field is a copy)
         self.key_mapping.set_key(key.clone());
-        // TODO(fabric2seer): static `KeyMapping.resetMapping` has no Rust counterpart in the port
-        // rust: KeyMapping::reset_mapping();
+        mcrust::net::minecraft::client::key_mapping::set_key(self.key_mapping.get_name(), key.clone());
+        // java: KeyMapping.resetMapping(); - the port derives MAP from ALL, so the new key is indexed already
     }
 
 }

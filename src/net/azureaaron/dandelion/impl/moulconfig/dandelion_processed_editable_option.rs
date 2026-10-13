@@ -1,115 +1,163 @@
-//! Ported from net.azureaaron.dandelion.impl.moulconfig.DandelionProcessedEditableOption by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.moulconfig.DandelionProcessedEditableOption.
+//!
+//! Represents an actual option which can be edited in the config, this option will either lie within a group or under
+//! the root determined by its `accordionId`.
+//!
+//! Java's subclasses are anonymous classes (`MoulConfigEditableOptionAdapter`): `createEditor()` and optionally
+//! `getType()` / `get()` / `set(..)`. Here they are the `EditableOptionClass` the object is built with; an override
+//! that calls `super.get()` calls `DandelionProcessedEditableOption::super_get`.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
-use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::DandelionProcessedOption;
-use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::DandelionProcessedOptionBase;
+use crate::net::azureaaron::dandelion::api::option::{AnyOption, Option};
+use crate::net::azureaaron::dandelion::api::option_listener::UpdateType;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::{DandelionProcessedOption, DandelionProcessedOptionBase};
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_search_tag::DandelionSearchTag;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_definition::{wrap_component, MoulConfigDefinition};
 use mcrust::net::minecraft::network::chat::component;
-use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
-use crate::net::azureaaron::dandelion::api::option::Option as _;
-use crate::net::azureaaron::dandelion::api::option_binding::OptionBinding as _;
 use mcrust::net::minecraft::network::chat::component::Component as _;
+use std::any::Any;
+use std::sync::Weak;
+
+type This<T> = DandelionProcessedEditableOption<T>;
+
+/// The members an anonymous subclass of `DandelionProcessedEditableOption` overrides.
+pub struct EditableOptionClass<T: Clone + PartialEq + 'static> {
+    /// java: protected GuiOptionEditor createEditor()
+    pub create_editor: Box<dyn Fn(&This<T>) -> crate::unresolved::GuiOptionEditor>,
+    /// java: @Override public Type getType()
+    pub get_type: std::option::Option<Box<dyn Fn(&This<T>) -> crate::unresolved::Type>>,
+    /// java: @Override public Object get()
+    pub get: std::option::Option<Box<dyn Fn(&This<T>) -> Arc<dyn Any>>>,
+    /// java: @Override public boolean set(Object value)
+    pub set: std::option::Option<Box<dyn Fn(&This<T>, Arc<dyn Any>) -> bool>>,
+}
 
 /// java: public abstract class DandelionProcessedEditableOption<T> extends DandelionProcessedOption
-pub struct DandelionProcessedEditableOptionBase<T> {
+pub struct DandelionProcessedEditableOption<T: Clone + PartialEq + 'static> {
     /// java: extends DandelionProcessedOption
     pub base: DandelionProcessedOptionBase,
     /// java: protected final Option<T> option;
-    pub option: compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<T>>,
+    pub option: Arc<dyn Option<T>>,
+    /// the anonymous subclass's overrides
+    pub class: EditableOptionClass<T>,
+    /// Java's `this` handed to the editors (`new DandelionLabelEditor(this, ..)`)
+    pub this: Weak<This<T>>,
 }
 
-impl<T: 'static> std::ops::Deref for DandelionProcessedEditableOptionBase<T> {
-    type Target = DandelionProcessedOptionBase;
-    fn deref(&self) -> &Self::Target {
+impl<T: Clone + PartialEq + 'static> DandelionProcessedEditableOption<T> {
+    /// java: protected DandelionProcessedEditableOption(Option<T> option, int accordionId, Config config)
+    pub fn new(option: Arc<dyn Option<T>>, accordion_id: i32, config: Arc<MoulConfigDefinition>, class: EditableOptionClass<T>) -> Arc<This<T>> {
+        Arc::new_cyclic(|this| Self { base: DandelionProcessedOptionBase::new(accordion_id, config), option, class, this: this.clone() })
+    }
+
+    /// `this` as MoulConfig's `ProcessedOption` (what the editors take)
+    pub fn as_processed_option(&self) -> crate::unresolved::ProcessedOption {
+        crate::unresolved::ProcessedOption::of(self.this.upgrade().expect("a processed option is used after it was dropped"))
+    }
+
+    /// java: `super.get()` - DandelionProcessedEditableOption.get()
+    pub fn super_get(&self) -> Arc<dyn Any> {
+        Arc::new(self.option.binding().get())
+    }
+
+    /// java: `super.set(value)` - DandelionProcessedEditableOption.set(Object)
+    pub fn super_set(&self, value: Arc<dyn Any>) -> bool {
+        // java: try { this.option.binding().set((T) value); .. } catch (Exception e) - a failed cast is the exception
+        match value.downcast_ref::<T>() {
+            Some(value) => {
+                self.option.binding().set(value.clone());
+                DandelionProcessedOption::explicit_notify_change(self);
+                true
+            }
+            None => {
+                logger().error(&format!(
+                    "[Dandelion] Failed to set option! Id: {}, Name: {} ClassCastException",
+                    compat::opt_str(&self.option.id()),
+                    self.option.name().get_string()
+                ));
+                false
+            }
+        }
+    }
+}
+
+impl<T: Clone + PartialEq + 'static> DandelionProcessedOption for DandelionProcessedEditableOption<T> {
+    fn dandelion_processed_option_base(&self) -> &DandelionProcessedOptionBase {
         &self.base
     }
-}
 
-impl<T: 'static> std::ops::DerefMut for DandelionProcessedEditableOptionBase<T> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.base
+    fn create_editor(&self) -> crate::unresolved::GuiOptionEditor {
+        (self.class.create_editor)(self)
     }
-}
-
-impl<T: Clone + 'static> DandelionProcessedEditableOptionBase<T> {
-    /// java: protected DandelionProcessedEditableOption(Option<T> option, int accordionId, Config config) (built by the most-derived class's `wrap`, then run on its handle)
-    pub fn new_in<__R>(mut option: compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<T>>, mut accordion_id: i32, mut config: crate::unresolved::Config, __wrap: impl FnOnce(Self) -> (compat::Shared<dyn DandelionProcessedEditableOption>, __R)) -> (compat::Shared<dyn DandelionProcessedEditableOption>, __R) {
-        let __init_option = option.clone();
-        let (_, (__this, __r)) = DandelionProcessedOptionBase::new_in(accordion_id, config.clone(), move |__base| {
-            let this = Self {
-                base: __base,
-                option: __init_option,
-            };
-            let (__h, __r) = __wrap(this);
-            ((__h.clone() as compat::Shared<dyn DandelionProcessedOption>), (__h, __r))
-        });
-        (__this, __r)
-    }
-
-}
-
-/// java: the virtual methods of DandelionProcessedEditableOption (implemented by DandelionProcessedEditableOptionBase and every subclass)
-pub trait DandelionProcessedEditableOption<T: Clone + 'static>: DandelionProcessedOption {
-    fn dandelion_processed_editable_option_base(&self) -> &DandelionProcessedEditableOptionBase<T>;
-    fn dandelion_processed_editable_option_base_mut(&mut self) -> &mut DandelionProcessedEditableOptionBase<T>;
 
     /// java: @Override public StructuredText getName()
     fn get_name(&self) -> crate::unresolved::StructuredText {
-        // TODO(fabric2seer): static call MoulConfigPlatform.wrap(..)
-        //   java: return MoulConfigPlatform.wrap(this.option.name());
-        todo!("fabric2seer: the value of this function is in a TODO above")
+        wrap_component(&self.option.name())
     }
 
     /// java: @Override public StructuredText getDescription()
     fn get_description(&self) -> crate::unresolved::StructuredText {
-        let mut concat: MutableComponent = component::empty();
-        concat.get_siblings().extend(self.dandelion_processed_editable_option_base().option.lock().borrow().description().into_iter());
-        // TODO(fabric2seer): static call MoulConfigPlatform.wrap(..)
-        //   java: return MoulConfigPlatform.wrap(concat);
-        todo!("fabric2seer: the value of this function is in a TODO above")
+        // java: Component concat = Component.empty(); concat.getSiblings().addAll(this.option.description());
+        let mut concat = component::empty();
+        for line in self.option.description() {
+            concat = concat.append(line);
+        }
+        wrap_component(&concat)
     }
 
     /// java: @Override public SearchTag[] getSearchTags()
     fn get_search_tags(&self) -> Vec<crate::unresolved::SearchTag> {
-        let mut tags: Vec<crate::unresolved::SearchTag> = self.dandelion_processed_editable_option_base().option.lock().borrow().tags().into_iter().map(|__a0| __a0.get_string()).map(|__a0| DandelionSearchTag::new(__a0.clone())).collect::<Vec<_>>();
-        return tags;
+        self.option
+            .tags()
+            .iter()
+            .map(|tag| crate::unresolved::SearchTag::of(Arc::new(DandelionSearchTag::new(tag.get_string()))))
+            .collect()
     }
 
     /// java: @Override public Type getType()
     fn get_type(&self) -> crate::unresolved::Type {
-        return self.dandelion_processed_editable_option_base().option.lock().borrow().r#type();
+        match &self.class.get_type {
+            Some(get_type) => get_type(self),
+            // java: return this.option.type();
+            None => crate::unresolved::Type::of(Arc::new(self.option.r#type())),
+        }
     }
 
     /// java: @Override public Object get()
-    fn get(&self) -> compat::Object {
-        return (std::sync::Arc::new(self.dandelion_processed_editable_option_base().option.lock().borrow().binding().lock().borrow().get()) as compat::Object);
+    fn get(&self) -> Arc<dyn Any> {
+        match &self.class.get {
+            Some(get) => get(self),
+            None => self.super_get(),
+        }
     }
 
     /// java: @SuppressWarnings("unchecked") @Override public boolean set(Object value)
-    fn set(&self, value: &compat::Object) -> bool {
-        // java: try {..} catch (Exception e) - an exception here is a panic, caught by `catch_unwind`; the body's `return` is the closure's value
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            self.dandelion_processed_editable_option_base_mut().option.lock().borrow().binding().lock().borrow_mut().set(value);
-            // TODO(fabric2seer): `explicitNotifyChange(..)` (an overridable method) called where the object has no handle (a `&self` method of a trait: a generic method)
-            //   java: this.explicitNotifyChange();
-            return true;
-        })) {
-            Ok(__v) => return __v,
-            Err(e) => {
-                logger().error(&format!("[Dandelion] Failed to set option! Id: {}, Name: {}", compat::opt_str(&self.dandelion_processed_editable_option_base().option.lock().borrow().id()), compat::jstring(&self.get_name())));
-            }
+    fn set(&self, value: Arc<dyn Any>) -> bool {
+        match &self.class.set {
+            Some(set) => set(self, value),
+            None => self.super_set(value),
         }
-        return false;
+    }
+
+    /// java: @Override public void explicitNotifyChange()
+    fn explicit_notify_change(&self) {
+        for listener in self.option.listeners() {
+            listener.on_update(&*self.option, UpdateType::ValueChange);
+        }
+        // java: ((MoulConfigDefinition) this.getConfig()).queueOptionFlags(this.option.flags());
+        self.get_config().queue_option_flags(self.option.flags());
     }
 
     /// java: @Override public @Nullable String getDebugDeclarationLocation()
-    fn get_debug_declaration_location(&self) -> Option<String> {
-        // TODO(fabric2seer): `.getText(..)` on a StructuredText
-        //   java: return this.option.id() != null ? this.option.id().toString() : this.getName().getText();
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn get_debug_declaration_location(&self) -> std::option::Option<String> {
+        match self.option.id() {
+            Some(id) => Some(id.to_string()),
+            // java: this.getName().getText()
+            None => {
+                let _ = self.get_name();
+                todo!("fabric2seer: StructuredText.getText() - MoulConfig is not ported (GAPS_D.md D1)")
+            }
+        }
     }
-
 }
-
-// DandelionProcessedEditableOption.explicitNotifyChange implements DandelionProcessedOption.explicitNotifyChange: it is emitted in each concrete subclass's `impl DandelionProcessedOption` (Rust has no inherited impls)

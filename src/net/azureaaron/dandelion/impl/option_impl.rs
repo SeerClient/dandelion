@@ -1,24 +1,30 @@
-//! Ported from net.azureaaron.dandelion.impl.OptionImpl by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.OptionImpl.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
-use crate::net::azureaaron::dandelion::api::controllers::controller::Controller;
-use crate::net::azureaaron::dandelion::api::option::Builder;
+use crate::net::azureaaron::dandelion::api::config_manager::AnyConfigManager;
+use crate::net::azureaaron::dandelion::api::controllers::controller::{Controller, ControllerKind, NumberControllerKind};
+use crate::net::azureaaron::dandelion::api::option::{self, AnyOption, Option};
 use crate::net::azureaaron::dandelion::api::option_binding::OptionBinding;
 use crate::net::azureaaron::dandelion::api::option_flag::OptionFlag;
 use crate::net::azureaaron::dandelion::api::option_listener::OptionListener;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_editable_option_adapter::{EditableOptionFactory, MoulConfigEditableOptionAdapter};
 use crate::net::azureaaron::dandelion::r#impl::option_binding_impl::OptionBindingImpl;
 use crate::net::azureaaron::dandelion::r#impl::utils::reflection_utils::ReflectionUtils;
+use crate::net::azureaaron::dandelion::r#impl::yacl::yacl_option_adapter::YACLOptionAdapter;
+use ::yacl::dev::isxander::yacl3::api::option::AnyOption as YAnyOption;
+use mcrust::java::awt::color::Color;
 use mcrust::net::minecraft::network::chat::component;
+use mcrust::net::minecraft::network::chat::component::Component as _;
 use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
 use mcrust::net::minecraft::resources::identifier::Identifier;
-use crate::net::azureaaron::dandelion::api::option::Option as _;
-use mcrust::net::minecraft::network::chat::component::Component as _;
+use mcrust::net::minecraft::world::item::item::Item;
+use std::any::TypeId;
 
 /// java: public class OptionImpl<T> implements Option<T>
-pub struct OptionImpl<T> {
+pub struct OptionImpl<T: Clone + PartialEq + 'static> {
     /// java: private final @Nullable Identifier id;
-    pub id: Option<Identifier>,
+    pub id: std::option::Option<Identifier>,
     /// java: private final Component name;
     pub name: MutableComponent,
     /// java: private final List<Component> description;
@@ -26,152 +32,154 @@ pub struct OptionImpl<T> {
     /// java: private final List<Component> tags;
     pub tags: Vec<MutableComponent>,
     /// java: private final OptionBinding<T> binding;
-    pub binding: compat::Shared<dyn OptionBinding<T>>,
+    pub binding: Arc<dyn OptionBinding<T>>,
     /// java: private final Controller<T> controller;
-    pub controller: compat::Shared<dyn Controller<T>>,
+    pub controller: Arc<dyn Controller<T>>,
     /// java: private final boolean modifiable;
     pub modifiable: bool,
     /// java: private final List<OptionFlag> flags;
-    pub flags: Vec<compat::Shared<dyn OptionFlag>>,
+    pub flags: Vec<Arc<dyn OptionFlag>>,
     /// java: private final List<OptionListener<T>> listeners;
-    pub listeners: Vec<compat::Shared<dyn OptionListener<T>>>,
+    pub listeners: Vec<Arc<dyn OptionListener<T>>>,
     /// java: private final Class<T> type;
-    pub r#type: Option<compat::ClassOf<T>>,
-    /// the object's own shared handle: Java's `this` handed to other objects
-    pub self_ref: compat::WeakShared<Self>,
+    pub r#type: compat::ClassOf<T>,
 }
 
-impl<T: Clone + 'static> OptionImpl<T> {
-    /// java: @SuppressWarnings("unchecked") protected OptionImpl(@Nullable Identifier id, Component name, List<Component> description, List<Component> tags, OptionBinding<T> binding, Controller<T> controller, bool
-    pub fn new(mut id: Option<Identifier>, mut name: MutableComponent, mut description: Vec<MutableComponent>, mut tags: Vec<MutableComponent>, mut binding: compat::Shared<dyn OptionBinding<T>>, mut controller: compat::Shared<dyn Controller<T>>, mut modifiable: bool, mut flags: Vec<compat::Shared<dyn OptionFlag>>, mut listeners: Vec<compat::Shared<dyn OptionListener<T>>>) -> compat::Shared<Self> {
-        let __init_id = id.clone();
-        let __init_name = name.clone();
-        let __init_description = description.clone();
-        let __init_tags = tags.clone();
-        let __init_binding = binding.clone();
-        let __init_controller = controller.clone();
-        let __init_modifiable = modifiable;
-        let __init_flags = flags.clone();
-        let __init_listeners = listeners.clone();
-        let __this = compat::shared(Self {
-            self_ref: std::sync::Weak::new(),
-            id: __init_id,
-            name: __init_name,
-            description: __init_description,
-            tags: __init_tags,
-            binding: __init_binding,
-            controller: __init_controller,
-            modifiable: __init_modifiable,
-            flags: __init_flags,
-            listeners: __init_listeners,
-            r#type: None,
-        });
-        compat::write(&__this, |__t| __t.self_ref = std::sync::Arc::downgrade(&__this));
-        { let __v = Some(ReflectionUtils::get_actual_class(&__this.lock().borrow().binding.default_value())); compat::write(&__this, |__t| __t.r#type = __v); }
-        OptionImpl::check_type(&(__this.clone() as compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>));
-        __this
+impl<T: Clone + PartialEq + 'static> OptionImpl<T> {
+    /// java: @SuppressWarnings("unchecked") protected OptionImpl(@Nullable Identifier id, Component name,
+    /// List<Component> description, List<Component> tags, OptionBinding<T> binding, Controller<T> controller,
+    /// boolean modifiable, List<OptionFlag> flags, List<OptionListener<T>> listeners)
+    pub fn new(
+        id: std::option::Option<Identifier>,
+        name: MutableComponent,
+        description: Vec<MutableComponent>,
+        tags: Vec<MutableComponent>,
+        binding: Arc<dyn OptionBinding<T>>,
+        controller: Arc<dyn Controller<T>>,
+        modifiable: bool,
+        flags: Vec<Arc<dyn OptionFlag>>,
+        listeners: Vec<Arc<dyn OptionListener<T>>>,
+    ) -> Self {
+        // java: this.type = (Class<T>) ReflectionUtils.getActualClass(Objects.requireNonNull(this.binding.defaultValue(), ..));
+        let r#type = ReflectionUtils::get_actual_class(&binding.default_value());
+        let this = Self { id, name, description, tags, binding, controller, modifiable, flags, listeners, r#type };
+        // Require that we receive the correct type, otherwise the library will likely crash later!
+        OptionImpl::check_type(&this);
+        this
     }
 
     /// java: protected static <T> void checkType(Option<T> option)
-    pub fn check_type<T: 'static>(option: &compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<T>>) {
-        // TODO(fabric2seer): switch expression (not parsed)
-        //   java: boolean hasCorrectType = switch (option.controller()) {
-        //   java: 			case BooleanController _ -> option.type() == boolean.class || option.type() == Boolean.class;
-        //   java: 			case ColourController _ -> option.type() == Color.class;
-        //   java: 			case EnumController<?> _ -> option.type().isEnum();
-        //   java: 			case FloatController _ -> option.type() == float.class || option.type() == Float.class;
-        //   java: 			case IntegerController _ -> option.type() == int.class || option.type() == Integer.class;
-        //   java: 			case ItemController _ -> Item.class.isAssignableFrom(option.type());
-        //   java: 			case StringController _ -> option.type() == String.class;
-        //   java: 		};
-        let mut has_correct_type: bool = todo!("fabric2seer: the initialiser of `hasCorrectType` (TODO above)");
+    ///
+    /// Checks that the `type` of the option matches the type required by the `controller`.
+    pub fn check_type(option: &dyn Option<T>) {
+        let r#type = option.r#type();
+        let ty = TypeId::of::<T>();
+        let controller = option.controller();
+        let has_correct_type = match controller.kind() {
+            ControllerKind::Boolean(_) => ty == TypeId::of::<bool>(),
+            ControllerKind::Colour(_) => ty == TypeId::of::<Color>(),
+            // `option.type().isEnum()`: an `EnumController<T>` exists only for `T: JavaEnum`
+            ControllerKind::Enum(_) => true,
+            ControllerKind::Number(NumberControllerKind::Float(_)) => ty == TypeId::of::<f32>(),
+            ControllerKind::Number(NumberControllerKind::Integer(_)) => ty == TypeId::of::<i32>(),
+            // `Item.class.isAssignableFrom(option.type())`
+            ControllerKind::Item(_) => ty == TypeId::of::<compat::JavaRef<Item>>(),
+            ControllerKind::String(_) => ty == TypeId::of::<String>(),
+        };
         if !has_correct_type {
-            // TODO(fabric2seer): `fmt` takes 1 argument(s) in the port (`f: &mut fmt::Formatter<'_>`), Java passes 0
-            // rust: let mut name: String = (if option.lock().borrow().id().is_some() { option.lock().borrow().id().unwrap().fmt() } else { option.lock().borrow().name().get_string() });
-            let mut name: String = todo!("fabric2seer: the initialiser of `name` (TODO above)");
-            // TODO(fabric2seer): `.getInterfaces(..)` on a Class
-            //   java: Class<?> controllerInterfaceType = option.controller().getClass().getInterfaces()[0];
-            let mut controller_interface_type: compat::ClassOf<compat::Object> = todo!("fabric2seer: the initialiser of `controllerInterfaceType` (TODO above)");
-            // TODO(fabric2seer): a pattern switch expression
-            //   java: String expected = switch (option.controller()) {
-            //   java: 				case BooleanController _ -> "boolean";
-            //   java: 				case ColourController _ -> "Color";
-            //   java: 				case EnumController<?> _ -> "Enum";
-            //   java: 				case FloatController _ -> "float";
-            //   java: 				case IntegerController _ -> "int";
-            //   java: 				case ItemController _ -> "Item";
-            //   java: 				case StringController _ -> "String";
-            //   java: 			};
-            let mut expected: String = todo!("fabric2seer: the initialiser of `expected` (TODO above)");
-            let mut message: String = format!("[Dandelion] Option {} has mismatched type with controller ({})! Expected a {} but got {}!", name, compat::jstring(&controller_interface_type), expected, compat::jstring(&option.lock().borrow().r#type()));
-            panic!("RuntimeException: {}", message.to_string());
+            let name = match option.id() {
+                Some(id) => id.to_string(),
+                None => option.name().get_string(),
+            };
+            // All the controller interface classes implement their respective interface so this *should* always yield
+            // one (and the correct one at that!)
+            let (controller_interface_type, expected) = match controller.kind() {
+                ControllerKind::Boolean(_) => ("BooleanController", "boolean"),
+                ControllerKind::Colour(_) => ("ColourController", "Color"),
+                ControllerKind::Enum(_) => ("EnumController", "Enum"),
+                ControllerKind::Number(NumberControllerKind::Float(_)) => ("FloatController", "float"),
+                ControllerKind::Number(NumberControllerKind::Integer(_)) => ("IntegerController", "int"),
+                ControllerKind::Item(_) => ("ItemController", "Item"),
+                ControllerKind::String(_) => ("StringController", "String"),
+            };
+            let message = format!(
+                "[Dandelion] Option {} has mismatched type with controller (interface net.azureaaron.dandelion.api.controllers.{})! Expected a {} but got {}!",
+                name,
+                controller_interface_type,
+                expected,
+                compat::jstring(&r#type)
+            );
+            panic!("RuntimeException: {message}");
         }
     }
-
 }
 
-impl<T: Clone + 'static> crate::net::azureaaron::dandelion::api::option::Option<T> for OptionImpl<T> {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
+impl<T: Clone + PartialEq + 'static> AnyOption for OptionImpl<T> {
     /// java: @Override public @Nullable Identifier id()
-    fn id(&self) -> Option<Identifier> {
-        return self.id.clone();
+    fn id(&self) -> std::option::Option<Identifier> {
+        self.id.clone()
     }
 
     /// java: @Override public Component name()
     fn name(&self) -> MutableComponent {
-        return self.name.clone();
+        self.name.clone()
     }
 
     /// java: @Override public List<Component> description()
     fn description(&self) -> Vec<MutableComponent> {
-        return self.description.clone();
+        self.description.clone()
     }
 
     /// java: @Override public List<Component> tags()
     fn tags(&self) -> Vec<MutableComponent> {
-        return self.tags.clone();
-    }
-
-    /// java: @Override public OptionBinding<T> binding()
-    fn binding(&self) -> compat::Shared<dyn OptionBinding<T>> {
-        return self.binding.clone();
-    }
-
-    /// java: @Override public Controller<T> controller()
-    fn controller(&self) -> compat::Shared<dyn Controller<T>> {
-        return self.controller.clone();
+        self.tags.clone()
     }
 
     /// java: @Override public boolean modifiable()
     fn modifiable(&self) -> bool {
-        return self.modifiable;
+        self.modifiable
     }
 
     /// java: @Override public List<OptionFlag> flags()
-    fn flags(&self) -> Vec<compat::Shared<dyn OptionFlag>> {
-        return self.flags.clone();
+    fn flags(&self) -> Vec<Arc<dyn OptionFlag>> {
+        self.flags.clone()
+    }
+
+    fn to_yacl_option(self: Arc<Self>, manager: &Arc<dyn AnyConfigManager>) -> Arc<dyn YAnyOption> {
+        YACLOptionAdapter::to_yacl_option::<T>(manager, self)
+    }
+
+    fn create_editable_option_factory(self: Arc<Self>) -> EditableOptionFactory {
+        MoulConfigEditableOptionAdapter::create_editable_option_factory::<T>(self)
+    }
+}
+
+impl<T: Clone + PartialEq + 'static> Option<T> for OptionImpl<T> {
+    /// java: @Override public OptionBinding<T> binding()
+    fn binding(&self) -> Arc<dyn OptionBinding<T>> {
+        self.binding.clone()
+    }
+
+    /// java: @Override public Controller<T> controller()
+    fn controller(&self) -> Arc<dyn Controller<T>> {
+        self.controller.clone()
     }
 
     /// java: @Override public List<OptionListener<T>> listeners()
-    fn listeners(&self) -> Vec<compat::Shared<dyn OptionListener<T>>> {
-        return self.listeners.clone();
+    fn listeners(&self) -> Vec<Arc<dyn OptionListener<T>>> {
+        self.listeners.clone()
     }
 
     /// java: @Override public Class<T> type()
     fn r#type(&self) -> compat::ClassOf<T> {
-        return self.r#type.clone().unwrap();
+        self.r#type
     }
-
 }
 
 /// java: public static class OptionBuilderImpl<T> implements Option.Builder<T>
-#[derive(Clone)]
-pub struct OptionBuilderImpl<T> {
+pub struct OptionBuilderImpl<T: Clone + PartialEq + 'static> {
     /// java: private @Nullable Identifier id = null;
-    pub id: Option<Identifier>,
+    pub id: std::option::Option<Identifier>,
     /// java: private Component name = Component.empty();
     pub name: MutableComponent,
     /// java: private List<Component> description = List.of();
@@ -179,118 +187,93 @@ pub struct OptionBuilderImpl<T> {
     /// java: private List<Component> tags = List.of();
     pub tags: Vec<MutableComponent>,
     /// java: private @Nullable OptionBinding<T> binding = null;
-    pub binding: Option<compat::Shared<dyn OptionBinding<T>>>,
+    pub binding: std::option::Option<Arc<dyn OptionBinding<T>>>,
     /// java: private @Nullable Controller<T> controller = null;
-    pub controller: Option<compat::Shared<dyn Controller<T>>>,
+    pub controller: std::option::Option<Arc<dyn Controller<T>>>,
     /// java: private boolean modifiable = true;
     pub modifiable: bool,
     /// java: private List<OptionFlag> flags = List.of();
-    pub flags: Vec<compat::Shared<dyn OptionFlag>>,
+    pub flags: Vec<Arc<dyn OptionFlag>>,
     /// java: private List<OptionListener<T>> listeners = new ArrayList<>();
-    pub listeners: Vec<compat::Shared<dyn OptionListener<T>>>,
+    pub listeners: Vec<Arc<dyn OptionListener<T>>>,
 }
 
-impl<T: Clone + 'static> OptionBuilderImpl<T> {
+impl<T: Clone + PartialEq + 'static> OptionBuilderImpl<T> {
     /// java: the implicit no-argument constructor
     pub fn new() -> Self {
-        let mut this = Self {
+        Self {
             id: None,
             name: component::empty(),
-            description: vec![],
-            tags: vec![],
+            description: Vec::new(),
+            tags: Vec::new(),
             binding: None,
             controller: None,
             modifiable: true,
-            flags: vec![],
+            flags: Vec::new(),
             listeners: Vec::new(),
-        };
-        this
+        }
     }
-
 }
 
-impl<T: Clone + 'static> Builder<T> for OptionBuilderImpl<T> {
-    fn as_any(&self) -> &dyn std::any::Any {
+impl<T: Clone + PartialEq + 'static> option::Builder<T> for OptionBuilderImpl<T> {
+    /// java: @Override public Builder<T> id(Identifier id)
+    fn id(mut self, id: Identifier) -> Self {
+        self.id = Some(id);
         self
     }
 
-    /// java: @Override public Builder<T> id(Identifier id)
-    fn id(&mut self, mut id: Identifier) -> compat::Shared<dyn Builder<T>> {
-        self.id = Some(id.clone());
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
-    }
-
     /// java: @Override public Builder<T> name(Component name)
-    fn name(&mut self, mut name: MutableComponent) -> compat::Shared<dyn Builder<T>> {
-        self.name = name.clone();
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn name(mut self, name: MutableComponent) -> Self {
+        self.name = name;
+        self
     }
 
     /// java: @Override public Builder<T> description(Component... texts)
-    fn description(&mut self, texts: &Vec<MutableComponent>) -> compat::Shared<dyn Builder<T>> {
-        self.description = texts.to_vec();
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn description(mut self, texts: Vec<MutableComponent>) -> Self {
+        self.description = texts;
+        self
     }
 
     /// java: @Override public Builder<T> tags(Component... tags)
-    fn tags(&mut self, tags: &Vec<MutableComponent>) -> compat::Shared<dyn Builder<T>> {
-        self.tags = tags.to_vec();
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn tags(mut self, tags: Vec<MutableComponent>) -> Self {
+        self.tags = tags;
+        self
     }
 
     /// java: @Override public Builder<T> binding(T defaultValue, Supplier<T> getter, Consumer<T> setter)
-    fn binding(&mut self, default_value: &T, getter: Arc<dyn Fn() -> T>, setter: Arc<dyn Fn(T)>) -> compat::Shared<dyn Builder<T>> {
-        self.binding = Some((compat::shared(OptionBindingImpl::new(default_value.clone(), getter.clone(), setter.clone())) as compat::Shared<dyn OptionBinding<compat::Object>>));
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn binding(mut self, default_value: T, getter: impl Fn() -> T + 'static, setter: impl Fn(T) + 'static) -> Self {
+        self.binding = Some(Arc::new(OptionBindingImpl::new(default_value, Arc::new(getter), Arc::new(setter))));
+        self
     }
 
     /// java: @Override public Builder<T> controller(Controller<T> controller)
-    fn controller(&mut self, mut controller: compat::Shared<dyn Controller<T>>) -> compat::Shared<dyn Builder<T>> {
-        self.controller = Some(controller.clone());
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn controller(mut self, controller: Arc<dyn Controller<T>>) -> Self {
+        self.controller = Some(controller);
+        self
     }
 
     /// java: @Override public Builder<T> modifiable(boolean modifiable)
-    fn modifiable(&mut self, mut modifiable: bool) -> compat::Shared<dyn Builder<T>> {
+    fn modifiable(mut self, modifiable: bool) -> Self {
         self.modifiable = modifiable;
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+        self
     }
 
     /// java: @Override public Builder<T> flags(OptionFlag... flags)
-    fn flags(&mut self, flags: &Vec<compat::Shared<dyn OptionFlag>>) -> compat::Shared<dyn Builder<T>> {
-        self.flags = flags.to_vec();
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn flags(mut self, flags: Vec<Arc<dyn OptionFlag>>) -> Self {
+        self.flags = flags;
+        self
     }
 
     /// java: @Override public Builder<T> listener(OptionListener<T> listener)
-    fn listener(&mut self, mut listener: compat::Shared<dyn OptionListener<T>>) -> compat::Shared<dyn Builder<T>> {
-        self.listeners.push(listener.clone());
-        // TODO(fabric2seer): `this` handed on as a reference other objects keep: the object has no shared handle to itself (port by hand)
-        //   java: return this;
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn listener(mut self, listener: Arc<dyn OptionListener<T>>) -> Self {
+        self.listeners.push(listener);
+        self
     }
 
     /// java: @Override public Option<T> build()
-    fn build(&self) -> compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<T>> {
-        self.binding;
-        self.controller;
-        return (OptionImpl::new(self.id.clone(), self.name.clone(), self.description.clone(), self.tags.clone(), self.binding.clone().unwrap(), self.controller.clone().unwrap(), self.modifiable, self.flags.clone(), self.listeners.iter().cloned().collect::<Vec<_>>()) as compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<compat::Object>>);
+    fn build(self) -> Arc<dyn Option<T>> {
+        let binding = self.binding.expect("NullPointerException: a binding is required.");
+        let controller = self.controller.expect("NullPointerException: a controller is required.");
+        Arc::new(OptionImpl::new(self.id, self.name, self.description, self.tags, binding, controller, self.modifiable, self.flags, self.listeners))
     }
-
 }

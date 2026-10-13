@@ -1,77 +1,105 @@
 //! Types the mod uses that neither the mod, the JDK mapping nor the port has (fabric2seer).
 //! Each is a placeholder: give it the real type (a library crate, or port the class).
+//!
+//! rust: port gap (GAPS_D.md D1) - MoulConfig (`io.github.notenoughupdates.moulconfig`, shaded by Dandelion) is not
+//! ported. A placeholder is a reference to an object of the Java class or of any subclass (`of`), so the Dandelion
+//! classes that extend one (`DandelionBlockedOptionEditor extends GuiOptionEditor`, ..) can be handed where Java
+//! widens to it; `as_any` is the `instanceof` test.
+
+/// A reference to an object of an unported Java class (or of a subclass of it); `Default` is `null`.
+macro_rules! placeholder_class {
+    ($name:ident) => {
+        #[derive(Clone, Default)]
+        pub struct $name(pub Option<std::sync::Arc<dyn std::any::Any>>);
+
+        impl $name {
+            /// the object as a reference of this class (Java's widening)
+            pub fn of<T: std::any::Any>(object: std::sync::Arc<T>) -> $name {
+                $name(Some(object))
+            }
+
+            /// `instanceof` / a cast: the object behind the reference (`()` for `null`)
+            pub fn as_any(&self) -> &dyn std::any::Any {
+                match &self.0 {
+                    Some(object) => &**object,
+                    None => &(),
+                }
+            }
+        }
+    };
+}
 
 /// TODO(fabric2seer): java java.lang.annotation.Annotation
-pub struct Annotation;
+placeholder_class!(Annotation);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.ChromaColour
-pub struct ChromaColour;
+placeholder_class!(ChromaColour);
 /// TODO(fabric2seer): java java.lang.Class
-pub struct Class;
+placeholder_class!(Class);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.MouseEvent.Click
-pub struct Click;
+placeholder_class!(Click);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.editors.ComponentEditor
-pub struct ComponentEditor;
+placeholder_class!(ComponentEditor);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.Config
-pub struct Config;
+placeholder_class!(Config);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.DescriptionRendereringBehaviour
-pub struct DescriptionRendereringBehaviour;
+placeholder_class!(DescriptionRendereringBehaviour);
 /// TODO(fabric2seer): java java.lang.Enum
-pub struct Enum;
+placeholder_class!(Enum);
 /// TODO(fabric2seer): java java.lang.reflect.Field
-pub struct Field;
+placeholder_class!(Field);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.observer.GetSetter
-pub struct GetSetter;
+placeholder_class!(GetSetter);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.GuiComponent
-pub struct GuiComponent;
+placeholder_class!(GuiComponent);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.GuiImmediateContext
-pub struct GuiImmediateContext;
+placeholder_class!(GuiImmediateContext);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.GuiOptionEditor
-pub struct GuiOptionEditor;
+placeholder_class!(GuiOptionEditor);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.editors.GuiOptionEditorAccordion
-pub struct GuiOptionEditorAccordion;
+placeholder_class!(GuiOptionEditorAccordion);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.common.IFontRenderer
-pub struct IFontRenderer;
+placeholder_class!(IFontRenderer);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.common.IItemStack
-pub struct IItemStack;
+placeholder_class!(IItemStack);
 /// TODO(fabric2seer): java com.mojang.blaze3d.platform.InputConstants
-pub struct InputConstants;
+placeholder_class!(InputConstants);
 /// TODO(fabric2seer): java com.google.gson.JsonDeserializationContext
-pub struct JsonDeserializationContext;
+placeholder_class!(JsonDeserializationContext);
 /// TODO(fabric2seer): java com.google.gson.JsonSerializationContext
-pub struct JsonSerializationContext;
+placeholder_class!(JsonSerializationContext);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.KeyboardEvent.KeyPressed
-pub struct KeyPressed;
+placeholder_class!(KeyPressed);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.KeyboardEvent
-pub struct KeyboardEvent;
+placeholder_class!(KeyboardEvent);
 /// TODO(fabric2seer): java com.mojang.logging.LogUtils
-pub struct LogUtils;
+placeholder_class!(LogUtils);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.MoulConfigEditor
-pub struct MoulConfigEditor;
+placeholder_class!(MoulConfigEditor);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.platform.MoulConfigScreenComponent
-pub struct MoulConfigScreenComponent;
+placeholder_class!(MoulConfigScreenComponent);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.gui.MouseEvent
-pub struct MouseEvent;
+placeholder_class!(MouseEvent);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.common.MyResourceLocation
-pub struct MyResourceLocation;
+placeholder_class!(MyResourceLocation);
 /// TODO(fabric2seer): java NarrationPriority
-pub struct NarrationPriority;
+placeholder_class!(NarrationPriority);
 /// TODO(fabric2seer): java com.ibm.icu.text.NumberFormat
-pub struct NumberFormat;
+placeholder_class!(NumberFormat);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.processor.ProcessedCategory
-pub struct ProcessedCategory;
+placeholder_class!(ProcessedCategory);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.processor.ProcessedOption
-pub struct ProcessedOption;
+placeholder_class!(ProcessedOption);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.common.RenderContext
-pub struct RenderContext;
+placeholder_class!(RenderContext);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.annotations.SearchTag
-pub struct SearchTag;
+placeholder_class!(SearchTag);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.Social
-pub struct Social;
+placeholder_class!(Social);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.common.text.StructuredText
-pub struct StructuredText;
+placeholder_class!(StructuredText);
 /// TODO(fabric2seer): java io.github.notenoughupdates.moulconfig.TitleRenderingBehaviour
-pub struct TitleRenderingBehaviour;
+placeholder_class!(TitleRenderingBehaviour);
 /// TODO(fabric2seer): java org.apache.commons.lang3.function.TriFunction
-pub struct TriFunction;
+placeholder_class!(TriFunction);
 /// TODO(fabric2seer): java java.lang.reflect.Type
-pub struct Type;
+placeholder_class!(Type);

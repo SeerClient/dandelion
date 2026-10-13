@@ -1,21 +1,23 @@
-//! Ported from net.azureaaron.dandelion.impl.LabelOptionImpl by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.LabelOptionImpl.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
+use crate::net::azureaaron::dandelion::api::config_manager::AnyConfigManager;
 use crate::net::azureaaron::dandelion::api::controllers::controller::Controller;
-use crate::net::azureaaron::dandelion::api::label_option::Builder;
-use crate::net::azureaaron::dandelion::api::label_option::LabelOption;
+use crate::net::azureaaron::dandelion::api::label_option::{self, LabelOption};
+use crate::net::azureaaron::dandelion::api::option::{AnyOption, Option};
 use crate::net::azureaaron::dandelion::api::option_binding::OptionBinding;
 use crate::net::azureaaron::dandelion::api::option_flag::OptionFlag;
 use crate::net::azureaaron::dandelion::api::option_listener::OptionListener;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_editable_option_adapter::{EditableOptionFactory, MoulConfigEditableOptionAdapter};
+use crate::net::azureaaron::dandelion::r#impl::utils::reflection_utils::ReflectionUtils;
+use crate::net::azureaaron::dandelion::r#impl::yacl::yacl_option_adapter::YACLOptionAdapter;
+use ::yacl::dev::isxander::yacl3::api::option::AnyOption as YAnyOption;
 use mcrust::net::minecraft::network::chat::component;
-use mcrust::net::minecraft::network::chat::contents::plain_text_contents::PlainTextContents;
 use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
 use mcrust::net::minecraft::resources::identifier::Identifier;
-use mcrust::net::minecraft::network::chat::component::Component as _;
 
 /// java: public class LabelOptionImpl implements LabelOption
-#[derive(Clone)]
 pub struct LabelOptionImpl {
     /// java: private final Component label;
     pub label: MutableComponent,
@@ -23,96 +25,86 @@ pub struct LabelOptionImpl {
 
 impl LabelOptionImpl {
     /// java: protected LabelOptionImpl(Component label)
-    pub fn new(mut label: MutableComponent) -> compat::Shared<Self> {
-        let __init_label = label.clone();
-        let __this = compat::shared(Self {
-            label: __init_label,
-        });
-        __this
+    pub fn new(label: MutableComponent) -> Self {
+        Self { label }
     }
-
 }
 
-impl LabelOption for LabelOptionImpl {
-    /// java: @Override public Component label() (dispatch: the body for this class)
-    fn label(&self) -> fn(&compat::Shared<dyn LabelOption>) -> MutableComponent {
-        LabelOptionImpl::label_dyn
-    }
-
-}
-
-impl crate::net::azureaaron::dandelion::api::option::Option<compat::Object> for LabelOptionImpl {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
+impl AnyOption for LabelOptionImpl {
     /// java: @Override public @Nullable Identifier id()
-    fn id(&self) -> Option<Identifier> {
-        panic!("UnsupportedOperationException");
+    fn id(&self) -> std::option::Option<Identifier> {
+        panic!("UnsupportedOperationException")
     }
 
     /// java: @Override public Component name()
     fn name(&self) -> MutableComponent {
-        return component::empty();
+        component::empty()
     }
 
     /// java: @Override public List<Component> description()
     fn description(&self) -> Vec<MutableComponent> {
-        return vec![];
+        Vec::new()
     }
 
     /// java: @Override public List<Component> tags()
     fn tags(&self) -> Vec<MutableComponent> {
-        return vec![];
-    }
-
-    /// java: @Override public OptionBinding<Component> binding()
-    fn binding(&self) -> compat::Shared<dyn OptionBinding<MutableComponent>> {
-        panic!("UnsupportedOperationException");
-    }
-
-    /// java: @Override public Controller<Component> controller()
-    fn controller(&self) -> compat::Shared<dyn Controller<MutableComponent>> {
-        panic!("UnsupportedOperationException");
+        Vec::new()
     }
 
     /// java: @Override public boolean modifiable()
     fn modifiable(&self) -> bool {
-        return true;
+        true
     }
 
     /// java: @Override public List<OptionFlag> flags()
-    fn flags(&self) -> Vec<compat::Shared<dyn OptionFlag>> {
-        panic!("UnsupportedOperationException");
+    fn flags(&self) -> Vec<Arc<dyn OptionFlag>> {
+        panic!("UnsupportedOperationException")
+    }
+
+    fn as_label_option(self: Arc<Self>) -> std::option::Option<Arc<dyn LabelOption>> {
+        Some(self)
+    }
+
+    fn to_yacl_option(self: Arc<Self>, manager: &Arc<dyn AnyConfigManager>) -> Arc<dyn YAnyOption> {
+        YACLOptionAdapter::to_yacl_option::<MutableComponent>(manager, self)
+    }
+
+    fn create_editable_option_factory(self: Arc<Self>) -> EditableOptionFactory {
+        MoulConfigEditableOptionAdapter::create_editable_option_factory::<MutableComponent>(self)
+    }
+}
+
+impl Option<MutableComponent> for LabelOptionImpl {
+    /// java: @Override public OptionBinding<Component> binding()
+    fn binding(&self) -> Arc<dyn OptionBinding<MutableComponent>> {
+        panic!("UnsupportedOperationException")
+    }
+
+    /// java: @Override public Controller<Component> controller()
+    fn controller(&self) -> Arc<dyn Controller<MutableComponent>> {
+        panic!("UnsupportedOperationException")
     }
 
     /// java: @Override public List<OptionListener<Component>> listeners()
-    fn listeners(&self) -> Vec<compat::Shared<dyn OptionListener<MutableComponent>>> {
-        panic!("UnsupportedOperationException");
+    fn listeners(&self) -> Vec<Arc<dyn OptionListener<MutableComponent>>> {
+        panic!("UnsupportedOperationException")
     }
 
     /// java: @Override public Class<Component> type()
     fn r#type(&self) -> compat::ClassOf<MutableComponent> {
-        return std::any::TypeId::of::<MutableComponent>();
+        // java: Component.class
+        ReflectionUtils::get_actual_class(&self.label)
     }
-
 }
 
-impl LabelOptionImpl {
+impl LabelOption for LabelOptionImpl {
     /// java: @Override public Component label()
-    pub fn label_impl(__this: &compat::Shared<Self>) -> MutableComponent {
-        return compat::read(__this, |__t| __t.label.clone());
+    fn label(&self) -> MutableComponent {
+        self.label.clone()
     }
-
-    /// LabelOptionImpl.label as the dispatch of LabelOption.label
-    pub fn label_dyn(__this: &compat::Shared<dyn LabelOption>) -> MutableComponent {
-        Self::label_impl(&compat::view_as::<Self, _, Self>(__this, |a| a))
-    }
-
 }
 
 /// java: public static class LabelOptionBuilderImpl implements LabelOption.Builder
-#[derive(Clone)]
 pub struct LabelOptionBuilderImpl {
     /// java: private List<Component> label = List.of();
     pub label: Vec<MutableComponent>,
@@ -120,56 +112,26 @@ pub struct LabelOptionBuilderImpl {
 
 impl LabelOptionBuilderImpl {
     /// java: the implicit no-argument constructor
-    pub fn new() -> compat::Shared<Self> {
-        let __this = compat::shared(Self {
-            label: vec![],
-        });
-        __this
+    pub fn new() -> Self {
+        Self { label: Vec::new() }
     }
-
 }
 
-impl Builder for LabelOptionBuilderImpl {
-    fn as_any(&self) -> &dyn std::any::Any {
+impl label_option::Builder for LabelOptionBuilderImpl {
+    /// java: @Override public LabelOption.Builder label(Component... texts)
+    fn label(mut self, texts: Vec<MutableComponent>) -> Self {
+        self.label = texts;
         self
     }
 
-    /// java: @Override public net.azureaaron.dandelion.api.LabelOption.Builder label(Component... texts) (dispatch: the body for this class)
-    fn label(&self) -> fn(&compat::Shared<dyn Builder>, &Vec<MutableComponent>) -> compat::Shared<dyn Builder> {
-        LabelOptionBuilderImpl::label_dyn
-    }
-
-    /// java: @Override public LabelOption build() (dispatch: the body for this class)
-    fn build(&self) -> fn(&compat::Shared<dyn Builder>) -> compat::Shared<dyn LabelOption> {
-        LabelOptionBuilderImpl::build_dyn
-    }
-
-}
-
-impl LabelOptionBuilderImpl {
-    /// java: @Override public net.azureaaron.dandelion.api.LabelOption.Builder label(Component... texts)
-    pub fn label_impl(__this: &compat::Shared<Self>, texts: &Vec<MutableComponent>) -> compat::Shared<dyn Builder> {
-        { let __v = texts.to_vec(); compat::write(__this, |__t| __t.label = __v); }
-        return (__this.clone() as compat::Shared<dyn Builder>);
-    }
-
-    /// LabelOptionBuilderImpl.label as the dispatch of Builder.label
-    pub fn label_dyn(__this: &compat::Shared<dyn Builder>, __p0: &Vec<MutableComponent>) -> compat::Shared<dyn Builder> {
-        Self::label_impl(&compat::view_as::<Self, _, Self>(__this, |a| a), __p0)
-    }
-
     /// java: @Override public LabelOption build()
-    pub fn build_impl(__this: &compat::Shared<Self>) -> compat::Shared<dyn LabelOption> {
-        let mut concatted: MutableComponent = MutableComponent::create(PlainTextContents::Empty);
-        for text in compat::read(__this, |__t| __t.label.clone()) {
-            concatted.get_siblings().push(text.clone());
+    fn build(self) -> Arc<dyn LabelOption> {
+        // java: Component concatted = MutableComponent.create(PlainTextContents.EMPTY); - `Component.empty()`
+        let mut concatted = component::empty();
+        for text in self.label {
+            // java: concatted.getSiblings().add(text);
+            concatted = concatted.append(text);
         }
-        return (LabelOptionImpl::new(concatted.clone()) as compat::Shared<dyn LabelOption>);
+        Arc::new(LabelOptionImpl::new(concatted))
     }
-
-    /// LabelOptionBuilderImpl.build as the dispatch of Builder.build
-    pub fn build_dyn(__this: &compat::Shared<dyn Builder>) -> compat::Shared<dyn LabelOption> {
-        Self::build_impl(&compat::view_as::<Self, _, Self>(__this, |a| a))
-    }
-
 }

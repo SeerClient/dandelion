@@ -1,14 +1,21 @@
-//! Ported from net.azureaaron.dandelion.api.OptionListener by fabric2seer.
+//! Ported from net.azureaaron.dandelion.api.OptionListener.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
+use crate::net::azureaaron::dandelion::api::option::Option;
 
 /// java: @FunctionalInterface public interface OptionListener<T>
-pub trait OptionListener<T: Clone + 'static> {
-    fn as_any(&self) -> &dyn std::any::Any;
+///
+/// Any `Fn(&dyn Option<T>, UpdateType)` is one (Java's lambda). The option is the reference the call borrows.
+pub trait OptionListener<T: Clone + PartialEq + 'static> {
     /// java: void onUpdate(Option<T> option, UpdateType type);
-    fn on_update(&self, option: &compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<T>>, mut r#type: UpdateType);
+    fn on_update(&self, option: &dyn Option<T>, r#type: UpdateType);
+}
 
+impl<T: Clone + PartialEq + 'static, F: Fn(&dyn Option<T>, UpdateType)> OptionListener<T> for F {
+    fn on_update(&self, option: &dyn Option<T>, r#type: UpdateType) {
+        self(option, r#type)
+    }
 }
 
 /// java: enum UpdateType
@@ -47,7 +54,6 @@ impl UpdateType {
             _ => panic!("IllegalArgumentException: No enum constant UpdateType.{name}"),
         }
     }
-
 }
 
 impl std::fmt::Display for UpdateType {

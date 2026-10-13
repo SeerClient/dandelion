@@ -1,33 +1,32 @@
-//! Ported from net.azureaaron.dandelion.api.controllers.BooleanController by fabric2seer.
+//! Ported from net.azureaaron.dandelion.api.controllers.BooleanController.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
+use crate::net::azureaaron::dandelion::api::controllers::controller;
 use crate::net::azureaaron::dandelion::api::controllers::controller::Controller;
 use crate::net::azureaaron::dandelion::r#impl::controllers::boolean_controller_impl::BooleanControllerBuilderImpl;
 
 /// java: public non-sealed interface BooleanController extends Controller<Boolean>
-pub trait BooleanController: Controller + compat::DynAny {
-    /// java: BooleanStyle style(); (dispatch: the body for this class)
-    fn style(&self) -> fn(&compat::Shared<dyn BooleanController>) -> BooleanStyle;
+pub trait BooleanController: Controller<bool> {
+    /// java: BooleanStyle style();
+    fn style(&self) -> BooleanStyle;
 
-    /// java: boolean coloured(); (dispatch: the body for this class)
-    fn coloured(&self) -> fn(&compat::Shared<dyn BooleanController>) -> bool;
-
+    /// java: boolean coloured();
+    fn coloured(&self) -> bool;
 }
 
 /// java: static Builder createBuilder()
-pub fn create_builder() -> compat::Shared<dyn Builder> {
-    return (BooleanControllerBuilderImpl::new() as compat::Shared<dyn Builder>);
+pub fn create_builder() -> BooleanControllerBuilderImpl {
+    BooleanControllerBuilderImpl::new()
 }
 
 /// java: interface Builder extends Controller.Builder<Boolean, BooleanController>
-pub trait Builder: crate::net::azureaaron::dandelion::api::controllers::controller::Builder + compat::DynAny {
-    /// java: Builder booleanStyle(BooleanStyle style); (dispatch: the body for this class)
-    fn boolean_style(&self) -> fn(&compat::Shared<dyn Builder>, BooleanStyle) -> compat::Shared<dyn Builder>;
+pub trait Builder: controller::Builder<bool, dyn BooleanController> {
+    /// java: Builder booleanStyle(BooleanStyle style);
+    fn boolean_style(self, style: BooleanStyle) -> Self;
 
-    /// java: Builder coloured(boolean coloured); (dispatch: the body for this class)
-    fn coloured(&self) -> fn(&compat::Shared<dyn Builder>, bool) -> compat::Shared<dyn Builder>;
-
+    /// java: Builder coloured(boolean coloured);
+    fn coloured(self, coloured: bool) -> Self;
 }
 
 /// java: enum BooleanStyle
@@ -69,7 +68,6 @@ impl BooleanStyle {
             _ => panic!("IllegalArgumentException: No enum constant BooleanStyle.{name}"),
         }
     }
-
 }
 
 impl std::fmt::Display for BooleanStyle {

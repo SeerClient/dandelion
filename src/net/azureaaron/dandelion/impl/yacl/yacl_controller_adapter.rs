@@ -1,90 +1,97 @@
-//! Ported from net.azureaaron.dandelion.impl.yacl.YACLControllerAdapter by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.yacl.YACLControllerAdapter.
+//!
+//! Java's `(Option<Boolean>) yaclOption` casts are `compat::java_cast`: the arm of the sealed switch proves `T`.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
-use ::yacl::dev::isxander::yacl3::api::controller::boolean_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::boolean_controller_builder::BooleanControllerBuilder;
-use ::yacl::dev::isxander::yacl3::api::controller::color_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::color_controller_builder::ColorControllerBuilder;
-use ::yacl::dev::isxander::yacl3::api::controller::controller_builder::ControllerBuilder;
-use ::yacl::dev::isxander::yacl3::api::controller::enum_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::enum_dropdown_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::float_field_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::float_slider_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::integer_field_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::integer_slider_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::item_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::string_controller_builder;
-use ::yacl::dev::isxander::yacl3::api::controller::value_formatter::ValueFormatter;
-use crate::net::azureaaron::dandelion::api::controllers::boolean_controller::BooleanController;
 use crate::net::azureaaron::dandelion::api::controllers::boolean_controller::BooleanStyle;
-use crate::net::azureaaron::dandelion::api::controllers::colour_controller::ColourController;
-use crate::net::azureaaron::dandelion::api::controllers::controller::Controller;
+use crate::net::azureaaron::dandelion::api::controllers::controller::{Controller, ControllerKind, NumberControllerKind};
 use crate::net::azureaaron::dandelion::api::controllers::enum_controller::EnumController;
-use crate::net::azureaaron::dandelion::api::controllers::float_controller::FloatController;
-use crate::net::azureaaron::dandelion::api::controllers::integer_controller::IntegerController;
-use crate::net::azureaaron::dandelion::api::controllers::item_controller::ItemController;
-use crate::net::azureaaron::dandelion::api::controllers::number_controller::NumberController;
-use crate::net::azureaaron::dandelion::api::controllers::string_controller::StringController;
-use ::yacl::dev::isxander::yacl3::api::controller::enum_controller_builder::EnumControllerBuilder as _;
-use ::yacl::dev::isxander::yacl3::api::controller::number_field_controller_builder::NumberFieldControllerBuilder as _;
-use ::yacl::dev::isxander::yacl3::api::controller::slider_controller_builder::SliderControllerBuilder as _;
-use ::yacl::dev::isxander::yacl3::api::controller::value_formattable_controller::ValueFormattableController as _;
+use ::yacl::dev::isxander::yacl3::api::controller::controller_builder::ControllerBuilder;
+use ::yacl::dev::isxander::yacl3::api::controller::{
+    boolean_controller_builder, color_controller_builder, enum_controller_builder, enum_dropdown_controller_builder,
+    float_field_controller_builder, float_slider_controller_builder, integer_field_controller_builder,
+    integer_slider_controller_builder, item_controller_builder, string_controller_builder,
+};
+use ::yacl::dev::isxander::yacl3::api::option::Option as YOption;
+use mcrust::java::awt::color::Color;
+use mcrust::net::minecraft::world::item::item::Item;
 
 /// java: public class YACLControllerAdapter
-#[derive(Clone)]
 pub struct YACLControllerAdapter {}
 
 impl YACLControllerAdapter {
-    /// java: the implicit no-argument constructor
-    pub fn new() -> Self {
-        let mut this = Self {
-        };
-        this
-    }
-
-    /// java: @SuppressWarnings(
-    pub fn to_yacl_controller_builder<T: Clone + 'static>(yacl_option: &compat::Shared<dyn ::yacl::dev::isxander::yacl3::api::option::Option<T>>, r#type: &compat::ClassOf<T>, controller: &compat::Shared<dyn Controller<T>>) -> compat::Shared<dyn ControllerBuilder<compat::Object>> {
-        if let Some(boolean_controller) = controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn BooleanController>>() {
-            let mut yacl_controller: compat::Shared<dyn BooleanControllerBuilder> = ({ let __r = &boolean_controller_builder::create(yacl_option); let __f = compat::dispatch(__r, |__t| __t.coloured()); __f(__r, ({ let __f = compat::dispatch(boolean_controller, |__t| __t.coloured()); __f(boolean_controller) })) });
-            yacl_controller = match ({ let __f = compat::dispatch(boolean_controller, |__t| __t.style()); __f(boolean_controller) }) {
-                BooleanStyle::OnOff => ({ let __f = compat::dispatch(&yacl_controller, |__t| __t.on_off_formatter()); __f(&yacl_controller) }),
-                BooleanStyle::YesNo => ({ let __f = compat::dispatch(&yacl_controller, |__t| __t.yes_no_formatter()); __f(&yacl_controller) }),
-                BooleanStyle::TrueFalse => ({ let __f = compat::dispatch(&yacl_controller, |__t| __t.true_false_formatter()); __f(&yacl_controller) }),
-                _ => unreachable!("switch expression: no case matched"),
-            };
-            return (yacl_controller as compat::Shared<dyn ControllerBuilder<compat::Object>>);
-        } else if let Some(colour_controller) = controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn ColourController>>() {
-            return (({ let __r = &color_controller_builder::create(yacl_option); let __f = compat::dispatch(__r, |__t| __t.allow_alpha()); __f(__r, ({ let __f = compat::dispatch(colour_controller, |__t| __t.has_alpha()); __f(colour_controller) })) }) as compat::Shared<dyn ControllerBuilder<compat::Object>>);
-        } else if let Some(enum_controller) = controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn EnumController<compat::Object>>>() {
-            let mut yacl_formatter: compat::Shared<dyn ValueFormatter<T>> = Arc::new(move |__a0| (enum_controller.lock().borrow().formatter())(__a0.clone()));
-            if !(enum_controller.lock().borrow().dropdown()) {
-                return { let (__a0,) = (yacl_formatter.clone(),); ({ let (__a0,) = (r#type.clone(),); enum_controller_builder::create(yacl_option).lock().borrow_mut().enum_class(__a0) }.lock().borrow_mut()).format_value(__a0) };
-            } else {
-                return { let (__a0,) = (yacl_formatter.clone(),); enum_dropdown_controller_builder::create(yacl_option).lock().borrow_mut().format_value(__a0) };
+    /// java: @SuppressWarnings({ "unchecked", "rawtypes" }) public static <T> ControllerBuilder toYaclControllerBuilder(
+    /// dev.isxander.yacl3.api.Option<T> yaclOption, Class<T> type, Controller<T> controller)
+    pub fn to_yacl_controller_builder<T: Clone + PartialEq + 'static, C: Controller<T> + ?Sized>(
+        yacl_option: Arc<dyn YOption<T>>,
+        r#type: compat::ClassOf<T>,
+        controller: &C,
+    ) -> Box<dyn ControllerBuilder<T>> {
+        match controller.kind() {
+            ControllerKind::Boolean(boolean_controller) => {
+                let yacl_controller = boolean_controller_builder::create(compat::java_cast::<_, Arc<dyn YOption<bool>>>(yacl_option))
+                    .coloured(boolean_controller.coloured());
+                let yacl_controller = match boolean_controller.style() {
+                    BooleanStyle::OnOff => yacl_controller.on_off_formatter(),
+                    BooleanStyle::YesNo => yacl_controller.yes_no_formatter(),
+                    BooleanStyle::TrueFalse => yacl_controller.true_false_formatter(),
+                };
+                compat::java_cast::<Box<dyn ControllerBuilder<bool>>, _>(Box::new(yacl_controller))
             }
-        } else if let Some(number_controller) = controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn NumberController<compat::Object>>>() {
-            if let Some(i) = number_controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn IntegerController>>() {
-                if i.lock().borrow().slider() {
-                    // TODO(fabric2seer): `.step(..)` on a B
-                    //   java: return IntegerSliderControllerBuilder.create((Option<Integer>) yaclOption).range(i.min(), i.max()).step(i.step());
-                } else {
-                    return { let (__a0, __a1,) = (&i.lock().borrow().min(), &i.lock().borrow().max(),); integer_field_controller_builder::create(yacl_option).lock().borrow_mut().range(__a0, __a1) };
-                }
-            } else if let Some(f) = number_controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn FloatController>>() {
-                if f.lock().borrow().slider() {
-                    // TODO(fabric2seer): `.step(..)` on a B
-                    //   java: return FloatSliderControllerBuilder.create((Option<Float>) yaclOption).range(f.min(), f.max()).step(f.step());
-                } else {
-                    return { let (__a0, __a1,) = (&f.lock().borrow().min(), &f.lock().borrow().max(),); float_field_controller_builder::create(yacl_option).lock().borrow_mut().range(__a0, __a1) };
-                }
+            ControllerKind::Colour(colour_controller) => {
+                let builder = color_controller_builder::create(compat::java_cast::<_, Arc<dyn YOption<Color>>>(yacl_option))
+                    .allow_alpha(colour_controller.has_alpha());
+                compat::java_cast::<Box<dyn ControllerBuilder<Color>>, _>(Box::new(builder))
             }
-        } else if let Some(_) = controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn ItemController>>() {
-            return (item_controller_builder::create(yacl_option) as compat::Shared<dyn ControllerBuilder<compat::Object>>);
-        } else if let Some(_) = controller.lock().borrow().as_any().downcast_ref::<compat::Shared<dyn StringController>>() {
-            return (string_controller_builder::create(yacl_option) as compat::Shared<dyn ControllerBuilder<compat::Object>>);
+            ControllerKind::Enum(enum_controller) => {
+                // the arm needs `T extends Enum<T>`: it runs where the controller knows its `T`
+                let erased = enum_controller.to_yacl_controller_builder_erased(Box::new(yacl_option), Box::new(r#type));
+                *erased
+                    .downcast::<Box<dyn ControllerBuilder<T>>>()
+                    .unwrap_or_else(|_| panic!("ClassCastException: the enum controller's builder is not of the option's type"))
+            }
+            ControllerKind::Number(NumberControllerKind::Integer(i)) => {
+                let option = compat::java_cast::<_, Arc<dyn YOption<i32>>>(yacl_option);
+                let builder: Box<dyn ControllerBuilder<i32>> = if i.slider() {
+                    Box::new(integer_slider_controller_builder::create(option).range(i.min(), i.max()).step(i.step()))
+                } else {
+                    Box::new(integer_field_controller_builder::create(option).range(i.min(), i.max()))
+                };
+                compat::java_cast(builder)
+            }
+            ControllerKind::Number(NumberControllerKind::Float(f)) => {
+                let option = compat::java_cast::<_, Arc<dyn YOption<f32>>>(yacl_option);
+                let builder: Box<dyn ControllerBuilder<f32>> = if f.slider() {
+                    Box::new(float_slider_controller_builder::create(option).range(f.min(), f.max()).step(f.step()))
+                } else {
+                    Box::new(float_field_controller_builder::create(option).range(f.min(), f.max()))
+                };
+                compat::java_cast(builder)
+            }
+            ControllerKind::Item(_) => {
+                let builder = item_controller_builder::create(compat::java_cast::<_, Arc<dyn YOption<compat::JavaRef<Item>>>>(yacl_option));
+                compat::java_cast::<Box<dyn ControllerBuilder<compat::JavaRef<Item>>>, _>(Box::new(builder))
+            }
+            ControllerKind::String(_) => {
+                let builder = string_controller_builder::create(compat::java_cast::<_, Arc<dyn YOption<String>>>(yacl_option));
+                compat::java_cast::<Box<dyn ControllerBuilder<String>>, _>(Box::new(builder))
+            }
         }
-        todo!("fabric2seer: the value of this function is in a TODO above")
     }
 
+    /// The `case EnumController<?> enumController` arm of `toYaclControllerBuilder`, with `T` known to be an enum.
+    pub fn to_yacl_enum_controller_builder<T: compat::JavaEnum>(
+        yacl_option: Arc<dyn YOption<T>>,
+        r#type: compat::ClassOf<T>,
+        enum_controller: &dyn EnumController<T>,
+    ) -> Box<dyn ControllerBuilder<T>> {
+        // java: ValueFormatter<T> yaclFormatter = ((Function<T, Component>) enumController.formatter())::apply;
+        let formatter = enum_controller.formatter();
+        if !enum_controller.dropdown() {
+            Box::new(enum_controller_builder::create(yacl_option).enum_class(r#type).value_formatter(move |v: T| formatter(v)))
+        } else {
+            Box::new(enum_dropdown_controller_builder::create(yacl_option).value_formatter(move |v: T| formatter(v)))
+        }
+    }
 }

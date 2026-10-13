@@ -1,189 +1,122 @@
-//! Ported from net.azureaaron.dandelion.impl.yacl.KeyMappingController by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.yacl.KeyMappingController.
+//!
+//! Custom `KeyMapping` controller for YACL (by isXander, Adaptive Tooltips). The widget is a YACL `ControllerWidget`
+//! leaf (PATTERNS_Y2 P3): it implements only its class trait, with `awaitingKeyPress` in a `Cell`.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
 use ::yacl::dev::isxander::yacl3::api::controller::Controller;
+use ::yacl::dev::isxander::yacl3::api::option::Option as YOption;
 use ::yacl::dev::isxander::yacl3::api::utils::dimension::Dimension;
 use ::yacl::dev::isxander::yacl3::gui::abstract_widget::AbstractWidget;
-use ::yacl::dev::isxander::yacl3::gui::abstract_widget::AbstractWidgetBase;
-use ::yacl::dev::isxander::yacl3::gui::controllers::controller_widget::ControllerWidget;
-use ::yacl::dev::isxander::yacl3::gui::controllers::controller_widget::ControllerWidgetBase;
+use ::yacl::dev::isxander::yacl3::gui::controllers::controller_widget::{ControllerWidget, ControllerWidgetBase};
 use ::yacl::dev::isxander::yacl3::gui::yacl_screen::YACLScreen;
-use mcrust::com::mojang::blaze3d::platform::input_constants::Key;
+use mcrust::com::mojang::blaze3d::platform::input_constants::{DisplayName, Key, Type};
 use mcrust::net::minecraft::chat_formatting::ChatFormatting;
-use mcrust::net::minecraft::client::gui::narration::narration_element_output::NarrationElementOutput;
+use mcrust::net::minecraft::client::input::key_event::KeyEvent;
 use mcrust::net::minecraft::client::input::mouse_button_event::MouseButtonEvent;
+use mcrust::net::minecraft::locale::language;
 use mcrust::net::minecraft::network::chat::component;
+use mcrust::net::minecraft::network::chat::formatted_text::FormattedText;
 use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
-use ::yacl::dev::isxander::yacl3::api::option::Option as _;
-use ::yacl::dev::isxander::yacl3::api::state_manager::StateManager as _;
+use std::cell::Cell;
+
+/// java: `InputConstants.Key.getDisplayName()` - the key's name (GLFW's for a printable key), its translation, or
+/// `key.mouse` with the button number.
+fn key_display_name(key: &Key) -> MutableComponent {
+    let minecraft = compat::minecraft();
+    match key.get_display_name(&|code, _scancode| minecraft.key_names.get(&code).cloned(), &|name| language::has(name)) {
+        DisplayName::Literal(text) => component::literal(&text),
+        DisplayName::Translatable(key) => component::translatable(&key),
+        DisplayName::MouseIndex(index) => component::translatable_args("key.mouse", vec![FormattedText::of(index.to_string())]),
+    }
+}
 
 /// java: public class KeyMappingController implements Controller<InputConstants.Key>
-#[derive(Clone)]
 pub struct KeyMappingController {
     /// java: private final Option<InputConstants.Key> option;
-    pub option: compat::Shared<dyn ::yacl::dev::isxander::yacl3::api::option::Option<Key>>,
-    /// the object's own shared handle: Java's `this` handed to other objects
-    pub self_ref: compat::WeakShared<Self>,
+    pub option: Arc<dyn YOption<Key>>,
 }
 
 impl KeyMappingController {
     /// java: protected KeyMappingController(Option<InputConstants.Key> option)
-    pub fn new(mut option: compat::Shared<dyn ::yacl::dev::isxander::yacl3::api::option::Option<Key>>) -> compat::Shared<Self> {
-        let __init_option = option.clone();
-        let __this = compat::shared(Self {
-            self_ref: std::sync::Weak::new(),
-            option: __init_option,
-        });
-        compat::write(&__this, |__t| __t.self_ref = std::sync::Arc::downgrade(&__this));
-        __this
+    pub fn new(option: Arc<dyn YOption<Key>>) -> Self {
+        Self { option }
     }
-
 }
 
-impl Controller<mcrust::com::mojang::blaze3d::platform::input_constants::Key> for KeyMappingController {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
+impl Controller<Key> for KeyMappingController {
     /// java: @Override public Option<InputConstants.Key> option()
-    fn option(&self) -> compat::Shared<dyn ::yacl::dev::isxander::yacl3::api::option::Option<Key>> {
-        return self.option.clone();
+    fn option(&self) -> Arc<dyn YOption<Key>> {
+        self.option.clone()
     }
 
     /// java: @Override public Component formatValue()
     fn format_value(&self) -> MutableComponent {
-        // TODO(fabric2seer): `.getDisplayName(..)` on a T
-        //   java: return this.option().stateManager().get().getDisplayName();
-        todo!("fabric2seer: the value of this function is in a TODO above")
+        key_display_name(&self.option().state_manager().get())
     }
 
     /// java: @Override public AbstractWidget provideWidget(YACLScreen screen, Dimension<Integer> widgetDimension)
-    fn provide_widget(&self, screen: &compat::Shared<YACLScreen>, widget_dimension: &compat::Shared<dyn Dimension<i32>>) -> compat::Shared<dyn AbstractWidget> {
-        return (KeyCodeControllerElement::new(self.self_ref.upgrade().unwrap(), screen.clone(), widget_dimension.clone()) as compat::Shared<dyn AbstractWidget>);
+    fn provide_widget(self: Arc<Self>, screen: &Arc<YACLScreen>, widget_dimension: Arc<dyn Dimension<i32>>) -> Arc<dyn AbstractWidget> {
+        Arc::new(KeyCodeControllerElement::new(self, screen, widget_dimension))
     }
-
 }
 
 /// java: protected static class KeyCodeControllerElement extends ControllerWidget<KeyMappingController>
 pub struct KeyCodeControllerElement {
     /// java: extends ControllerWidget
-    pub base: ControllerWidgetBase<compat::Shared<KeyMappingController>>,
+    pub cw: ControllerWidgetBase,
+    /// java: ControllerWidget.control
+    pub control: Arc<KeyMappingController>,
     /// java: private boolean awaitingKeyPress = false;
-    pub awaiting_key_press: bool,
-    /// the object's own shared handle: Java's `this` handed to other objects
-    pub self_ref: compat::WeakShared<Self>,
-}
-
-impl std::ops::Deref for KeyCodeControllerElement {
-    type Target = ControllerWidgetBase<compat::Shared<KeyMappingController>>;
-    fn deref(&self) -> &Self::Target {
-        &self.base
-    }
-}
-
-impl std::ops::DerefMut for KeyCodeControllerElement {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.base
-    }
+    pub awaiting_key_press: Cell<bool>,
 }
 
 impl KeyCodeControllerElement {
     /// java: protected KeyCodeControllerElement(KeyMappingController control, YACLScreen screen, Dimension<Integer> dim)
-    pub fn new(mut control: compat::Shared<KeyMappingController>, mut screen: compat::Shared<YACLScreen>, mut dim: compat::Shared<dyn Dimension<i32>>) -> compat::Shared<Self> {
-        let __this = compat::shared(Self {
-            base: ControllerWidgetBase::<compat::Shared<KeyMappingController>>::new(control.clone(), screen.clone(), dim.clone()),
-            self_ref: std::sync::Weak::new(),
-            awaiting_key_press: false,
-        });
-        compat::write(&__this, |__t| __t.self_ref = std::sync::Arc::downgrade(&__this));
-        __this
+    pub fn new(control: Arc<KeyMappingController>, screen: &Arc<YACLScreen>, dim: Arc<dyn Dimension<i32>>) -> Self {
+        Self { cw: ControllerWidgetBase::new::<Key, KeyMappingController>(&control, screen, dim), control, awaiting_key_press: Cell::new(false) }
+    }
+}
+
+impl ControllerWidget for KeyCodeControllerElement {
+    fn controller_widget(&self) -> &ControllerWidgetBase {
+        &self.cw
     }
 
     /// java: @Override public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick)
-    pub fn mouse_clicked(__this: &compat::Shared<Self>, event: &MouseButtonEvent, mut double_click: bool) -> bool {
-        if !({ let __f = compat::dispatch(__this, |__t| __t.is_mouse_over()); __f(&compat::view(__this, |a| a as compat::Shared<dyn AbstractWidget>), event.x(), event.y()) }) || !(__this.lock().borrow().is_available()) {
+    fn mouse_clicked(&self, event: &MouseButtonEvent, _double_click: bool) -> bool {
+        if !ControllerWidget::is_mouse_over(self, event.x(), event.y()) || !ControllerWidget::is_available(self) {
             return false;
         }
-        if compat::read(__this, |__t| __t.awaiting_key_press) {
-            // TODO(fabric2seer): `.option(..)` on a T
-            //   java: this.control.option().requestSet(InputConstants.Type.MOUSE.getOrCreate(event.button()));
+        if self.awaiting_key_press.get() {
+            self.control.option().request_set(Type::Mouse.get_or_create(event.button()));
         }
-        { let __v = !(compat::read(__this, |__t| __t.awaiting_key_press)); compat::write(__this, |__t| __t.awaiting_key_press = __v); }
-        return true;
+        self.awaiting_key_press.set(!self.awaiting_key_press.get());
+        true
     }
 
     /// java: @Override public boolean keyPressed(KeyEvent event)
-    pub fn key_pressed(__this: &compat::Shared<Self>, event: &mcrust::net::minecraft::client::input::key_event::KeyEvent) -> bool {
-        if compat::read(__this, |__t| __t.awaiting_key_press) {
-            // TODO(fabric2seer): `.option(..)` on a T
-            //   java: this.control.option().requestSet(InputConstants.Type.KEYSYM.getOrCreate(event.key()));
-            { let __v = false; compat::write(__this, |__t| __t.awaiting_key_press = __v); }
+    fn key_pressed(&self, event: &KeyEvent) -> bool {
+        if self.awaiting_key_press.get() {
+            self.control.option().request_set(Type::Keysym.get_or_create(event.key()));
+            self.awaiting_key_press.set(false);
             return true;
         }
-        return false;
-    }
-
-}
-
-impl ControllerWidget<compat::Shared<crate::net::azureaaron::dandelion::r#impl::yacl::key_mapping_controller::KeyMappingController>> for KeyCodeControllerElement {
-    fn controller_widget_base(&self) -> &ControllerWidgetBase<compat::Shared<crate::net::azureaaron::dandelion::r#impl::yacl::key_mapping_controller::KeyMappingController>> {
-        &self.base
-    }
-    fn controller_widget_base_mut(&mut self) -> &mut ControllerWidgetBase<compat::Shared<crate::net::azureaaron::dandelion::r#impl::yacl::key_mapping_controller::KeyMappingController>> {
-        &mut self.base
+        false
     }
 
     /// java: @Override protected Component getValueText()
     fn get_value_text(&self) -> MutableComponent {
-        if self.awaiting_key_press {
+        if self.awaiting_key_press.get() {
             return component::translatable("text.dandelion.option.keyMapping.awaitingPress").with_style_format(ChatFormatting::Italic);
         }
-        return self.base.get_value_text();
+        // java: super.getValueText()
+        self.cw.control_format_value()
     }
 
     /// java: @Override protected int getHoveredControlWidth()
     fn get_hovered_control_width(&self) -> i32 {
-        return self.get_unhovered_control_width();
+        ControllerWidget::get_unhovered_control_width(self)
     }
-
-}
-
-impl AbstractWidget for KeyCodeControllerElement {
-    fn abstract_widget_base(&self) -> &AbstractWidgetBase {
-        &self.base.base
-    }
-    fn abstract_widget_base_mut(&mut self) -> &mut AbstractWidgetBase {
-        &mut self.base.base
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    /// java: @Override public boolean canReset() (dispatch: the body for this class)
-    fn can_reset(&self) -> fn(&compat::Shared<dyn AbstractWidget>) -> bool {
-        <dyn ControllerWidget>::can_reset_from::<Self>
-    }
-
-    /// java: @Override public NarrationPriority narrationPriority() (dispatch: the body for this class)
-    fn narration_priority(&self) -> fn(&compat::Shared<dyn AbstractWidget>) -> crate::unresolved::NarrationPriority {
-        <dyn ControllerWidget>::narration_priority_from::<Self>
-    }
-
-    /// java: @Override public void unfocus() (dispatch: the body for this class)
-    fn unfocus(&self) -> fn(&compat::Shared<dyn AbstractWidget>) {
-        <dyn ControllerWidget>::unfocus_from::<Self>
-    }
-
-    /// java: @Override public boolean matchesSearch(String query) (dispatch: the body for this class)
-    fn matches_search(&self) -> fn(&compat::Shared<dyn AbstractWidget>, &str) -> bool {
-        <dyn ControllerWidget>::matches_search_from::<Self>
-    }
-
-    /// java: @Override public void updateNarration(NarrationElementOutput builder) (dispatch: the body for this class)
-    fn update_narration(&self) -> fn(&compat::Shared<dyn AbstractWidget>, &mut dyn NarrationElementOutput) {
-        <dyn ControllerWidget>::update_narration_from::<Self>
-    }
-
 }

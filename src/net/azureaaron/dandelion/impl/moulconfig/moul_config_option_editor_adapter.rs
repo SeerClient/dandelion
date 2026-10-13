@@ -1,55 +1,69 @@
-//! Ported from net.azureaaron.dandelion.impl.moulconfig.MoulConfigOptionEditorAdapter by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.moulconfig.MoulConfigOptionEditorAdapter.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
+use crate::net::azureaaron::dandelion::api::controllers::controller::{ControllerKind, NumberControllerKind};
+use crate::net::azureaaron::dandelion::api::option::Option;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::editor::dandelion_blocked_option_editor::DandelionBlockedOptionEditor;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::editor::dandelion_colour_editor::DandelionColourEditor;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::editor::dandelion_item_editor::DandelionItemEditor;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::editor::dandelion_number_field_editor::DandelionNumberFieldEditor;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::editor::dandelion_number_slider_editor::DandelionNumberSliderEditor;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_definition::MoulConfigDefinition;
-use crate::net::azureaaron::dandelion::api::option::Option as _;
+use crate::unresolved::GuiOptionEditor;
 
 /// java: public class MoulConfigOptionEditorAdapter
-#[derive(Clone)]
 pub struct MoulConfigOptionEditorAdapter {}
 
 impl MoulConfigOptionEditorAdapter {
-    /// java: the implicit no-argument constructor
-    pub fn new() -> Self {
-        let mut this = Self {
+    /// java: public static <T> GuiOptionEditor createMoulConfigEditor(Option<T> option, ProcessedOption moulConfigOption,
+    /// MoulConfigDefinition configDefinition)
+    pub fn create_moul_config_editor<T: Clone + PartialEq + 'static>(
+        option: Arc<dyn Option<T>>,
+        moul_config_option: crate::unresolved::ProcessedOption,
+        config_definition: &Arc<MoulConfigDefinition>,
+    ) -> GuiOptionEditor {
+        let controller = option.controller();
+        let option_editor: GuiOptionEditor = match controller.kind() {
+            // java: new GuiOptionEditorBoolean(moulConfigOption, -1, configDefinition)
+            ControllerKind::Boolean(_) => todo!("fabric2seer: `new GuiOptionEditorBoolean(..)` - MoulConfig is not ported (GAPS_D.md D1)"),
+            ControllerKind::Colour(colour_controller) => GuiOptionEditor::of(DandelionColourEditor::new(moul_config_option, colour_controller.has_alpha())),
+            ControllerKind::Enum(enum_controller) => {
+                // java: String[] displayValues = ..; GuiOptionEditorDropdown editor = new GuiOptionEditorDropdown(moulConfigOption,
+                // displayValues, true); ((GuiOptionEditorDropdownAccessor) editor).setConstants((Enum<?>[]) constants);
+                let _display_values = enum_controller.display_values();
+                todo!("fabric2seer: `new GuiOptionEditorDropdown(..)` - MoulConfig is not ported (GAPS_D.md D1)")
+            }
+            ControllerKind::Number(NumberControllerKind::Float(float_controller)) if !float_controller.slider() => {
+                let default_value: f32 = compat::java_cast(option.binding().default_value());
+                GuiOptionEditor::of(Arc::new(DandelionNumberFieldEditor::new(moul_config_option, float_controller.min(), float_controller.max(), default_value)))
+            }
+            ControllerKind::Number(NumberControllerKind::Float(float_controller)) => {
+                GuiOptionEditor::of(Arc::new(DandelionNumberSliderEditor::new(moul_config_option, float_controller.min(), float_controller.max(), float_controller.step())))
+            }
+            ControllerKind::Number(NumberControllerKind::Integer(integer_controller)) if !integer_controller.slider() => {
+                let default_value: i32 = compat::java_cast(option.binding().default_value());
+                GuiOptionEditor::of(Arc::new(DandelionNumberFieldEditor::new(
+                    moul_config_option,
+                    integer_controller.min() as f32,
+                    integer_controller.max() as f32,
+                    default_value as f32,
+                )))
+            }
+            ControllerKind::Number(NumberControllerKind::Integer(integer_controller)) => GuiOptionEditor::of(Arc::new(DandelionNumberSliderEditor::new(
+                moul_config_option,
+                integer_controller.min() as f32,
+                integer_controller.max() as f32,
+                integer_controller.step() as f32,
+            ))),
+            ControllerKind::Item(_) => GuiOptionEditor::of(Arc::new(DandelionItemEditor::new(moul_config_option))),
+            // java: new GuiOptionEditorText(moulConfigOption, "§")
+            ControllerKind::String(_) => todo!("fabric2seer: `new GuiOptionEditorText(..)` - MoulConfig is not ported (GAPS_D.md D1)"),
         };
-        this
-    }
-
-    /// java: public static <T> GuiOptionEditor createMoulConfigEditor(Option<T> option, ProcessedOption moulConfigOption, MoulConfigDefinition configDefinition)
-    pub fn create_moul_config_editor<T: 'static>(option: &compat::Shared<dyn crate::net::azureaaron::dandelion::api::option::Option<T>>, moul_config_option: &crate::unresolved::ProcessedOption, config_definition: &compat::Shared<MoulConfigDefinition>) -> crate::unresolved::GuiOptionEditor {
-        // TODO(fabric2seer): a pattern switch expression
-        //   java: GuiOptionEditor optionEditor = switch (option.controller()) {
-        //   java: 			case BooleanController _ -> new GuiOptionEditorBoolean(moulConfigOption, -1, configDefinition);
-        //   java: 			case ColourController colourController -> new DandelionColourEditor(moulConfigOption, colourController.hasAlpha());
-        //   java: 			case @SuppressWarnings("rawtypes") EnumController enumController -> {
-        //   java: 				T[] constants = option.type().getEnumConstants();
-        //   java: 				@SuppressWarnings("unchecked")
-        //   java: 				String[] displayValues = (String[]) Arrays.stream(constants)
-        //   java: 					.map(enumController.formatter())
-        //   java: 					.map(t -> ((Component) t).getString())
-        //   java: 					.toArray(String[]::new);
-        //   java: 				GuiOptionEditorDropdown editor = new GuiOptionEditorDropdown(moulConfigOption, displayValues, true);
-        //   java: 				((GuiOptionEditorDropdownAccessor) editor).setConstants((Enum<?>[]) constants);
-        //   java: 				yield editor;
-        //   java: 			}
-        //   java: 			case FloatController floatController when !floatController.slider() -> new DandelionNumberFieldEditor(moulConfigOption, floatController.min(), floatController.max(), (Float) option.binding().defaultValue());
-        //   java: 			case FloatController floatController when floatController.slider() -> new DandelionNumberSliderEditor(moulConfigOption, floatController.min(), floatController.max(), floatController.step());
-        //   java: 			case IntegerController integerController when !integerController.slider() -> new DandelionNumberFieldEditor(moulConfigOption, integerController.min(), integerController.max(), (Integer) option.binding().defaultValue());
-        //   java: 			case IntegerController integerController when integerController.slider() -> new DandelionNumberSliderEditor(moulConfigOption, integerController.min(), integerController.max(), integerController.step());
-        //   java: 			case ItemController _ -> new DandelionItemEditor(moulConfigOption);
-        //   java: 			case StringController _ -> new GuiOptionEditorText(moulConfigOption, "§");
-        //   java: 			default -> throw new UnsupportedOperationException(String.format("The controller %s is not supported by the MoulConfig backend.", option.controller().getClass().getName()));
-        //   java: 		};
-        let mut option_editor: crate::unresolved::GuiOptionEditor = todo!("fabric2seer: the initialiser of `optionEditor` (TODO above)");
-        if option.lock().borrow().modifiable() && !(MoulConfigDefinition::is_option_patched(config_definition, option)) {
-            return option_editor;
+        if option.modifiable() && !config_definition.is_option_patched(&*option) {
+            option_editor
         } else {
-            return DandelionBlockedOptionEditor::new(option_editor.clone());
+            GuiOptionEditor::of(Arc::new(DandelionBlockedOptionEditor::new(option_editor)))
         }
-        todo!("fabric2seer: the value of this function is in a TODO above")
     }
-
 }

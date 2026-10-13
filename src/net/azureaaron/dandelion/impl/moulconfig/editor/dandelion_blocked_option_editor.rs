@@ -11,7 +11,7 @@ pub static BLOCKED_OVERLAY: compat::MainThread<crate::unresolved::MyResourceLoca
 /// java: public class DandelionBlockedOptionEditor extends GuiOptionEditor
 pub struct DandelionBlockedOptionEditor {
     /// java: extends io.github.notenoughupdates.moulconfig.gui.GuiOptionEditor
-    pub base: crate::unresolved::GuiOptionEditor,
+    pub gui_option_editor: crate::unresolved::GuiOptionEditor,
     /// java: private final GuiOptionEditor base;
     pub base: crate::unresolved::GuiOptionEditor,
 }
@@ -19,13 +19,13 @@ pub struct DandelionBlockedOptionEditor {
 impl std::ops::Deref for DandelionBlockedOptionEditor {
     type Target = crate::unresolved::GuiOptionEditor;
     fn deref(&self) -> &Self::Target {
-        &self.base
+        &self.gui_option_editor
     }
 }
 
 impl std::ops::DerefMut for DandelionBlockedOptionEditor {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.base
+        &mut self.gui_option_editor
     }
 }
 

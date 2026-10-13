@@ -1,4 +1,4 @@
-//! Ported from net.azureaaron.dandelion.api.PlatformLinks by fabric2seer.
+//! Ported from net.azureaaron.dandelion.api.PlatformLinks.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
@@ -7,44 +7,53 @@ use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
 use mcrust::net::minecraft::resources::identifier::Identifier;
 
 /// java: Identifier GITHUB_ICON = Dandelion.id("textures/gui/github.png");
-pub static GITHUB_ICON: compat::MainThread<Identifier> = compat::MainThread::new(|| crate::entry::dandelion::id("textures/gui/github.png"));
+///
+/// Built-in GitHub icon. The texture was made by Bedrock Armor.
+#[allow(non_snake_case)]
+pub fn GITHUB_ICON() -> Identifier {
+    crate::entry::dandelion::id("textures/gui/github.png")
+}
+
 /// java: Identifier MODRINTH_ICON = Dandelion.id("textures/gui/modrinth.png");
-pub static MODRINTH_ICON: compat::MainThread<Identifier> = compat::MainThread::new(|| crate::entry::dandelion::id("textures/gui/modrinth.png"));
+///
+/// Built-in Modrinth icon. The texture was made by Bedrock Armor.
+#[allow(non_snake_case)]
+pub fn MODRINTH_ICON() -> Identifier {
+    crate::entry::dandelion::id("textures/gui/modrinth.png")
+}
 
 /// java: public interface PlatformLinks
 pub trait PlatformLinks: compat::DynAny {
-    fn as_any(&self) -> &dyn std::any::Any;
-    /// java: List<Link> links(); (dispatch: the body for this class)
-    fn links(&self) -> fn(&compat::Shared<dyn PlatformLinks>) -> Vec<compat::Shared<dyn Link>>;
-
+    /// java: List<Link> links();
+    fn links(&self) -> Vec<Arc<dyn Link>>;
 }
 
 /// java: static Builder createBuilder()
-pub fn create_builder() -> compat::Shared<dyn Builder> {
-    return (PlatformLinksBuilderImpl::new() as compat::Shared<dyn Builder>);
+///
+/// Creates a new builder from which platform links can be appended.
+pub fn create_builder() -> PlatformLinksBuilderImpl {
+    PlatformLinksBuilderImpl::new()
 }
 
 /// java: interface Builder
-pub trait Builder: compat::DynAny {
-    fn as_any(&self) -> &dyn std::any::Any;
-    /// java: Builder link(Component name, Identifier icon, String link); (dispatch: the body for this class)
-    fn link(&self) -> fn(&compat::Shared<dyn Builder>, &MutableComponent, &Identifier, &str) -> compat::Shared<dyn Builder>;
+pub trait Builder: Sized {
+    /// java: Builder link(Component name, Identifier icon, String link);
+    ///
+    /// Adds a new link. The provided `link` is checked for validity.
+    fn link(self, name: MutableComponent, icon: Identifier, link: &str) -> Self;
 
-    /// java: PlatformLinks build(); (dispatch: the body for this class)
-    fn build(&self) -> fn(&compat::Shared<dyn Builder>) -> compat::Shared<dyn PlatformLinks>;
-
+    /// java: PlatformLinks build();
+    fn build(self) -> Arc<dyn PlatformLinks>;
 }
 
 /// java: interface Link
 pub trait Link: compat::DynAny {
-    fn as_any(&self) -> &dyn std::any::Any;
-    /// java: Component name(); (dispatch: the body for this class)
-    fn name(&self) -> fn(&compat::Shared<dyn Link>) -> MutableComponent;
+    /// java: Component name();
+    fn name(&self) -> MutableComponent;
 
-    /// java: Identifier icon(); (dispatch: the body for this class)
-    fn icon(&self) -> fn(&compat::Shared<dyn Link>) -> Identifier;
+    /// java: Identifier icon();
+    fn icon(&self) -> Identifier;
 
-    /// java: String link(); (dispatch: the body for this class)
-    fn link(&self) -> fn(&compat::Shared<dyn Link>) -> String;
-
+    /// java: String link();
+    fn link(&self) -> String;
 }

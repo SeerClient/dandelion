@@ -1,45 +1,68 @@
-//! Ported from net.azureaaron.dandelion.impl.utils.ReflectionUtils by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.utils.ReflectionUtils.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
 
 /// java: public final class ReflectionUtils
-#[derive(Clone)]
 pub struct ReflectionUtils {}
 
-impl ReflectionUtils {
-    /// java: private ReflectionUtils()
-    pub fn new() -> Self {
-        let mut this = Self {
-        };
-        this
-    }
+/// The members of `Class<T>` a value's class has no generated form for (`getClass()` of an option's default value:
+/// `Boolean`, `Integer`, `Color`, an enum, ..): the port answers its name, and the reflective operations Dandelion
+/// never asks of such a class throw.
+fn no_reflection<T>() -> T {
+    panic!("UnsupportedOperationException: no reflective constructor for {}", std::any::type_name::<T>())
+}
 
+fn no_to_gson<T>(_value: &T) -> compat::GsonValue {
+    panic!("UnsupportedOperationException: no Gson form for {}", std::any::type_name::<T>())
+}
+
+fn no_read_gson<T>(_json: &serde_json::Value) -> Option<T> {
+    panic!("UnsupportedOperationException: no Gson form for {}", std::any::type_name::<T>())
+}
+
+fn no_patch<T>(_value: &mut T, _path: &[&str], _patch: &compat::PatchValue) -> bool {
+    false
+}
+
+fn no_enum_constants() -> Vec<String> {
+    Vec::new()
+}
+
+impl ReflectionUtils {
     /// java: public static <T> T createNewDefaultInstance(Class<T> clazz)
     pub fn create_new_default_instance<T: 'static>(clazz: &compat::ClassOf<T>) -> T {
-        // java: try {..} catch (ReflectiveOperationException e) - an exception here is a panic, caught by `catch_unwind`; the body's `return` is the closure's value
-        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            return (clazz.new)();
-        })) {
-            Ok(__v) => return __v,
-            Err(e) => {
-                panic!("RuntimeException: {}", format!("[Dandelion] Class {} must have a no args constructor!", compat::jstring(&clazz)).to_string());
-            }
+        // java: try {..} catch (ReflectiveOperationException e) - an exception here is a panic, caught by `catch_unwind`
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| clazz.new_instance())) {
+            Ok(instance) => instance,
+            Err(_e) => panic!("RuntimeException: [Dandelion] Class {} must have a no args constructor!", compat::jstring(clazz)),
         }
     }
 
     /// java: @SuppressWarnings("unchecked") public static <T> Class<? extends T> getActualClass(T object)
+    ///
+    /// Returns the actual class representing an `object`: for an enum constant declared with a constant-specific
+    /// class body Java answers the enclosing enum class. A Rust value's class IS its type (an enum's variants have
+    /// no classes of their own), so the answer is `T`'s class; `isEnum()` is `false` unless the type is known to be
+    /// an enum (`get_actual_enum_class`).
     pub fn get_actual_class<T: 'static>(object: &T) -> compat::ClassOf<T> {
-        let mut original_class: compat::ClassOf<T> = compat::type_name_of(&object);
-        // TODO(fabric2seer): `.getEnclosingClass(..)` on a Class
-        //   java: Class<? extends T> enclosingClass = (Class<? extends T>) originalClass.getEnclosingClass();
-        let mut enclosing_class: compat::ClassOf<T> = todo!("fabric2seer: the initialiser of `enclosingClass` (TODO above)");
-        if !original_class.is_enum && true /* java: enclosing_class != null: never null here */ && enclosing_class.is_enum {
-            return enclosing_class;
-        } else {
-            return original_class;
+        let _ = object;
+        compat::ClassOf {
+            name: std::any::type_name::<T>(),
+            new: no_reflection::<T>,
+            to_gson: no_to_gson::<T>,
+            read_gson: no_read_gson::<T>,
+            patch: no_patch::<T>,
+            is_enum: false,
+            enum_constants: no_enum_constants,
         }
-        todo!("fabric2seer: the value of this function is in a TODO above")
     }
 
+    /// `getActualClass(object)` for a value whose type is a Java enum: `isEnum()` and `getEnumConstants()` answer.
+    pub fn get_actual_enum_class<T: compat::JavaEnum>(object: &T) -> compat::ClassOf<T> {
+        fn enum_constants<T: compat::JavaEnum>() -> Vec<String> {
+            T::enum_constants().iter().map(|c| c.name()).collect()
+        }
+        compat::ClassOf { is_enum: true, enum_constants: enum_constants::<T>, ..ReflectionUtils::get_actual_class(object) }
+    }
 }

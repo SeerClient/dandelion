@@ -1,14 +1,15 @@
-//! Ported from net.azureaaron.dandelion.api.patching.ComparisonOperator by fabric2seer.
+//! Ported from net.azureaaron.dandelion.api.patching.ComparisonOperator.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
 use mcrust::com::mojang::serialization::codec::Codec;
 use mcrust::com::mojang::serialization::codec::CodecRef;
+use mcrust::mcrust::modding::version::Version;
+use mcrust::net::minecraft::util::string_representable;
 
-// TODO(fabric2seer): `from_enum` takes 2 argument(s) in the port (`values: Vec<E>, serialized_name: impl Fn(&E) -> String + Send + Sync + Copy + 'static`), Java passes 1
-//   java: public static final Codec<ComparisonOperator> CODEC = StringRepresentable.fromEnum(ComparisonOperator::values);
 /// java: public static final Codec<ComparisonOperator> CODEC = StringRepresentable.fromEnum(ComparisonOperator::values);
-pub static CODEC: compat::MainThread<CodecRef<ComparisonOperator>> = compat::MainThread::new(|| todo!("fabric2seer: the initialiser of `CODEC` - see the TODO above"));
+pub static CODEC: LazyLock<CodecRef<ComparisonOperator>> =
+    LazyLock::new(|| string_representable::from_enum(ComparisonOperator::values(), |e: &ComparisonOperator| e.get_serialized_name()));
 
 /// java: public enum ComparisonOperator implements StringRepresentable
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -65,19 +66,26 @@ impl ComparisonOperator {
     }
 
     /// java: public boolean compare(Version version1, Version version2)
-    pub fn compare(&self, version1: &mcrust::mcrust::modding::version::Version, version2: &mcrust::mcrust::modding::version::Version) -> bool {
-        // TODO(fabric2seer): `Version.compareTo` (the loader's Version)
-        //   java: return switch (this) {
-        //   java: 			case EQUAL_TO -> version1.compareTo(version2) == 0;
-        //   java: 			case NOT_EQUAL_TO -> version1.compareTo(version2) != 0;
-        //   java: 			case GREATER_THAN -> version1.compareTo(version2) > 0;
-        //   java: 			case GREATER_THAN_OR_EQUAL_TO -> version1.compareTo(version2) >= 0;
-        //   java: 			case LESS_THAN -> version1.compareTo(version2) < 0;
-        //   java: 			case LESS_THAN_OR_EQUAL_TO -> version1.compareTo(version2) <= 0;
-        //   java: 		};
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    pub fn compare(&self, version1: &Version, version2: &Version) -> bool {
+        let c = compare_versions(version1, version2);
+        match self {
+            ComparisonOperator::EqualTo => c == 0,
+            ComparisonOperator::NotEqualTo => c != 0,
+            ComparisonOperator::GreaterThan => c > 0,
+            ComparisonOperator::GreaterThanOrEqualTo => c >= 0,
+            ComparisonOperator::LessThan => c < 0,
+            ComparisonOperator::LessThanOrEqualTo => c <= 0,
+        }
     }
+}
 
+/// Fabric's `Version.compareTo(Version)`: two semantic versions compare by semver precedence; otherwise
+/// (`StringVersion`, or a semantic version against a string one) by `getFriendlyString()` - `String.compareTo`.
+fn compare_versions(version1: &Version, version2: &Version) -> i32 {
+    match (version1.as_semantic(), version2.as_semantic()) {
+        (Some(a), Some(b)) => compat::ord_int(a.cmp(b)),
+        _ => compat::compare_to(&version1.to_string(), &version2.to_string()),
+    }
 }
 
 impl std::fmt::Display for ComparisonOperator {

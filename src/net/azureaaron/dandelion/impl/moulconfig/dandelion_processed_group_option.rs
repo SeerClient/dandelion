@@ -1,134 +1,93 @@
-//! Ported from net.azureaaron.dandelion.impl.moulconfig.DandelionProcessedGroupOption by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.moulconfig.DandelionProcessedGroupOption.
+//!
+//! This class represents a `ProcessedOption` that maps to an `OptionGroup` or accordion (in MoulConfig terms) under
+//! which editable options exist.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
 use crate::net::azureaaron::dandelion::api::option_group::OptionGroup;
-use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::DandelionProcessedOption;
-use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::DandelionProcessedOptionBase;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::{DandelionProcessedOption, DandelionProcessedOptionBase};
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_search_tag::DandelionSearchTag;
+use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_definition::{wrap_component, MoulConfigDefinition};
 use mcrust::net::minecraft::network::chat::component;
-use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
 use mcrust::net::minecraft::network::chat::component::Component as _;
+use std::any::Any;
 
 /// java: public class DandelionProcessedGroupOption extends DandelionProcessedOption
 pub struct DandelionProcessedGroupOption {
     /// java: extends DandelionProcessedOption
     pub base: DandelionProcessedOptionBase,
     /// java: private final OptionGroup group;
-    pub group: compat::Shared<dyn OptionGroup>,
+    pub group: Arc<dyn OptionGroup>,
     /// java: private final int categoryAccordionId;
     pub category_accordion_id: i32,
-    /// the object's own shared handle: Java's `this` handed to other objects
-    pub self_ref: compat::WeakShared<Self>,
-}
-
-impl std::ops::Deref for DandelionProcessedGroupOption {
-    type Target = DandelionProcessedOptionBase;
-    fn deref(&self) -> &Self::Target {
-        &self.base
-    }
-}
-
-impl std::ops::DerefMut for DandelionProcessedGroupOption {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.base
-    }
 }
 
 impl DandelionProcessedGroupOption {
     /// java: protected DandelionProcessedGroupOption(OptionGroup group, int rootAccordionId, int categoryAccordionId, Config config)
-    pub fn new(mut group: compat::Shared<dyn OptionGroup>, mut root_accordion_id: i32, mut category_accordion_id: i32, mut config: crate::unresolved::Config) -> compat::Shared<Self> {
-        let __init_group = group.clone();
-        let __init_category_accordion_id = category_accordion_id;
-        let (_, __this) = DandelionProcessedOptionBase::new_in(root_accordion_id, config.clone(), move |__base| {
-            let __h = compat::shared(Self {
-                base: __base,
-                self_ref: std::sync::Weak::new(),
-                group: __init_group,
-                category_accordion_id: __init_category_accordion_id,
-            });
-            compat::write(&__h, |__t| __t.self_ref = std::sync::Arc::downgrade(&__h));
-            ((__h.clone() as compat::Shared<dyn DandelionProcessedOption>), __h)
-        });
-        __this
+    pub fn new(group: Arc<dyn OptionGroup>, root_accordion_id: i32, category_accordion_id: i32, config: Arc<MoulConfigDefinition>) -> Self {
+        Self { base: DandelionProcessedOptionBase::new(root_accordion_id, config), group, category_accordion_id }
     }
-
-    /// java: @Override public StructuredText getName()
-    pub fn get_name(__this: &compat::Shared<Self>) -> crate::unresolved::StructuredText {
-        // TODO(fabric2seer): static call MoulConfigPlatform.wrap(..)
-        //   java: return MoulConfigPlatform.wrap(this.group.name());
-        todo!("fabric2seer: the value of this function is in a TODO above")
-    }
-
-    /// java: @Override public StructuredText getDescription()
-    pub fn get_description(__this: &compat::Shared<Self>) -> crate::unresolved::StructuredText {
-        let mut concat: MutableComponent = component::empty();
-        concat.get_siblings().extend(({ let __r = &compat::read(__this, |__t| __t.group.clone()); let __f = compat::dispatch(__r, |__t| __t.description()); __f(__r) }).into_iter());
-        // TODO(fabric2seer): static call MoulConfigPlatform.wrap(..)
-        //   java: return MoulConfigPlatform.wrap(concat);
-        todo!("fabric2seer: the value of this function is in a TODO above")
-    }
-
-    /// java: @Override public SearchTag[] getSearchTags()
-    pub fn get_search_tags(__this: &compat::Shared<Self>) -> Vec<crate::unresolved::SearchTag> {
-        let mut tags: Vec<crate::unresolved::SearchTag> = ({ let __r = &compat::read(__this, |__t| __t.group.clone()); let __f = compat::dispatch(__r, |__t| __t.tags()); __f(__r) }).into_iter().map(|__a0| __a0.get_string()).map(|__a0| DandelionSearchTag::new(__a0.clone())).collect::<Vec<_>>();
-        return tags;
-    }
-
-    /// java: @Override public Object get()
-    pub fn get(__this: &compat::Shared<Self>) -> compat::Object {
-        return (std::sync::Arc::new(((None) as ())) as compat::Object);
-    }
-
-    /// java: @Override public Type getType()
-    pub fn get_type(__this: &compat::Shared<Self>) -> crate::unresolved::Type {
-        return std::any::TypeId::of::<()>();
-    }
-
-    /// java: @Override public boolean set(Object value)
-    pub fn set(__this: &compat::Shared<Self>, value: &compat::Object) -> bool {
-        return false;
-    }
-
-    /// java: @Override public @Nullable String getDebugDeclarationLocation()
-    pub fn get_debug_declaration_location(__this: &compat::Shared<Self>) -> Option<String> {
-        // TODO(fabric2seer): `.getText(..)` on a StructuredText
-        //   java: return this.group.id() != null ? this.group.id().toString() : this.getName().getText();
-        todo!("fabric2seer: the value of this function is in a TODO above")
-    }
-
 }
 
 impl DandelionProcessedOption for DandelionProcessedGroupOption {
     fn dandelion_processed_option_base(&self) -> &DandelionProcessedOptionBase {
         &self.base
     }
-    fn dandelion_processed_option_base_mut(&mut self) -> &mut DandelionProcessedOptionBase {
-        &mut self.base
+
+    /// java: @Override public StructuredText getName()
+    fn get_name(&self) -> crate::unresolved::StructuredText {
+        wrap_component(&self.group.name())
     }
 
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
+    /// java: @Override public StructuredText getDescription()
+    fn get_description(&self) -> crate::unresolved::StructuredText {
+        let mut concat = component::empty();
+        for line in self.group.description() {
+            concat = concat.append(line);
+        }
+        wrap_component(&concat)
     }
 
-    /// java: @Override protected GuiOptionEditor createEditor() (dispatch: the body for this class)
-    fn create_editor(&self) -> fn(&compat::Shared<dyn DandelionProcessedOption>) -> crate::unresolved::GuiOptionEditor {
-        DandelionProcessedGroupOption::create_editor_dyn
+    /// java: @Override public SearchTag[] getSearchTags()
+    fn get_search_tags(&self) -> Vec<crate::unresolved::SearchTag> {
+        self.group
+            .tags()
+            .iter()
+            .map(|tag| crate::unresolved::SearchTag::of(Arc::new(DandelionSearchTag::new(tag.get_string()))))
+            .collect()
     }
 
-}
+    /// java: @Override public Object get() - `(Void) null`
+    fn get(&self) -> Arc<dyn Any> {
+        Arc::new(())
+    }
 
-impl DandelionProcessedGroupOption {
+    /// java: @Override public Type getType() - `Void.class`
+    fn get_type(&self) -> crate::unresolved::Type {
+        crate::unresolved::Type::of(Arc::new(std::any::TypeId::of::<()>()))
+    }
+
+    /// java: @Override public boolean set(Object value)
+    fn set(&self, value: Arc<dyn Any>) -> bool {
+        let _ = value;
+        false
+    }
+
+    /// java: @Override public @Nullable String getDebugDeclarationLocation()
+    fn get_debug_declaration_location(&self) -> Option<String> {
+        match self.group.id() {
+            Some(id) => Some(id.to_string()),
+            None => {
+                let _ = self.get_name();
+                todo!("fabric2seer: StructuredText.getText() - MoulConfig is not ported (GAPS_D.md D1)")
+            }
+        }
+    }
+
     /// java: @Override protected GuiOptionEditor createEditor()
-    pub fn create_editor_impl(__this: &compat::Shared<Self>) -> crate::unresolved::GuiOptionEditor {
-        // TODO(fabric2seer): `new GuiOptionEditorAccordion(..)`
-        //   java: return new GuiOptionEditorAccordion(this, this.categoryAccordionId);
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    fn create_editor(&self) -> crate::unresolved::GuiOptionEditor {
+        // java: return new GuiOptionEditorAccordion(this, this.categoryAccordionId);
+        todo!("fabric2seer: `new GuiOptionEditorAccordion(..)` - MoulConfig is not ported (GAPS_D.md D1)")
     }
-
-    /// DandelionProcessedGroupOption.createEditor as the dispatch of DandelionProcessedOption.createEditor
-    pub fn create_editor_dyn(__this: &compat::Shared<dyn DandelionProcessedOption>) -> crate::unresolved::GuiOptionEditor {
-        Self::create_editor_impl(&compat::view_as::<Self, _, Self>(__this, |a| a))
-    }
-
 }

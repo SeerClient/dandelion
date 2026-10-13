@@ -1,4 +1,4 @@
-//! Ported from net.azureaaron.dandelion.api.ConfigType by fabric2seer.
+//! Ported from net.azureaaron.dandelion.api.ConfigType.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
@@ -43,9 +43,7 @@ impl ConfigType {
 
     /// java: @Override public String toString()
     pub fn to_string(&self) -> String {
-        // TODO(fabric2seer): `get` takes 2 argument(s) in the port (`id: &str, args: &[String]`), Java passes 1
-        // rust: return i18n::get(&format!("text.dandelion.configType.{}", self.name()));
-        return todo!("fabric2seer: see the TODO above");
+        return i18n::get(&format!("text.dandelion.configType.{}", self.name()), &[]);
     }
 
 }

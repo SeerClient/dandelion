@@ -1,67 +1,71 @@
-//! Ported from net.azureaaron.dandelion.impl.yacl.YACLOptionGroupAdapter by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.yacl.YACLOptionGroupAdapter.
+//!
+//! `toYaclOptionGroup`'s `switch (group)` dispatches through `OptionGroup::to_yacl_option_group`: a list option answers
+//! `to_yacl_list_option_group` (the `case ListOption listOption` arm, with its `T`), every other group
+//! `to_yacl_plain_option_group` (the `case OptionGroup optionGroup` arm).
 
 #[allow(unused_imports)]
 use crate::prelude::*;
-use crate::net::azureaaron::dandelion::api::config_manager::ConfigManager;
+use crate::net::azureaaron::dandelion::api::config_manager::AnyConfigManager;
+use crate::net::azureaaron::dandelion::api::list_option::ListOption;
+use crate::net::azureaaron::dandelion::api::option::{AnyOption, Option};
 use crate::net::azureaaron::dandelion::api::option_group::OptionGroup;
+use crate::net::azureaaron::dandelion::r#impl::yacl::yacl_option_adapter::YACLOptionAdapter;
+use ::yacl::dev::isxander::yacl3::api::list_option as ylist_option;
+use ::yacl::dev::isxander::yacl3::api::option::Option as YOption;
+use ::yacl::dev::isxander::yacl3::api::option_description;
+use ::yacl::dev::isxander::yacl3::api::option_group as yoption_group;
+use ::yacl::dev::isxander::yacl3::api::option_group::OptionGroup as YOptionGroup;
 
 /// java: public class YACLOptionGroupAdapter
-#[derive(Clone)]
 pub struct YACLOptionGroupAdapter {}
 
 impl YACLOptionGroupAdapter {
-    /// java: the implicit no-argument constructor
-    pub fn new() -> Self {
-        let mut this = Self {
-        };
-        this
-    }
-
-    /// java: protected static List<dev.isxander.yacl3.api.OptionGroup> toYaclOptionGroups(ConfigManager<?> manager, List<net.azureaaron.dandelion.api.OptionGroup> groups)
-    pub fn to_yacl_option_groups(manager: &compat::Shared<dyn ConfigManager<compat::Object>>, groups: &Vec<compat::Shared<dyn OptionGroup>>) -> Vec<compat::Shared<dyn ::yacl::dev::isxander::yacl3::api::option_group::OptionGroup>> {
-        let mut yacl_groups: Vec<compat::Shared<dyn ::yacl::dev::isxander::yacl3::api::option_group::OptionGroup>> = Vec::new();
-        for group in groups.iter() {
-            yacl_groups.push(YACLOptionGroupAdapter::to_yacl_option_group(manager, group));
+    /// java: protected static List<dev.isxander.yacl3.api.OptionGroup> toYaclOptionGroups(ConfigManager<?> manager,
+    /// List<net.azureaaron.dandelion.api.OptionGroup> groups)
+    pub fn to_yacl_option_groups(manager: &Arc<dyn AnyConfigManager>, groups: Vec<Arc<dyn OptionGroup>>) -> Vec<Arc<dyn YOptionGroup>> {
+        let mut yacl_groups: Vec<Arc<dyn YOptionGroup>> = Vec::new();
+        for group in groups {
+            yacl_groups.push(group.to_yacl_option_group(manager));
         }
-        return yacl_groups;
+        yacl_groups
     }
 
-    /// java: @SuppressWarnings(
-    pub fn to_yacl_option_group(manager: &compat::Shared<dyn ConfigManager<compat::Object>>, group: &compat::Shared<dyn OptionGroup>) -> compat::Shared<dyn ::yacl::dev::isxander::yacl3::api::option_group::OptionGroup> {
-        // TODO(fabric2seer): a pattern switch expression
-        //   java: return switch (group) {
-        //   java: 			case ListOption listOption -> dev.isxander.yacl3.api.ListOption.createBuilder()
-        //   java: 					.name(listOption.name())
-        //   java: 					.description(OptionDescription.createBuilder()
-        //   java: 							.text(listOption.description())
-        //   java: 							.build())
-        //   java: 					.binding((List<Object>) listOption.binding().defaultValue(),
-        //   java: 							() -> (List<Object>) listOption.binding().get(),
-        //   java: 							listOption.binding()::set)
-        //   java: 					.controller(yaclOption -> listOption.entryController().controllerYACL(yaclOption, listOption.entryType()))
-        //   java: 					.initial(listOption.initialValue())
-        //   java: 					.collapsed(listOption.collapsed())
-        //   java: 					.available(listOption.modifiable() && !((ConfigManagerImpl<?>) manager).isOptionPatched(listOption.id()))
-        //   java: 					.flags(YACLOptionAdapter.toYaclOptionFlags(listOption))
-        //   java: 					.addListeners(YACLOptionAdapter.toYaclOptionEventListener(listOption))
-        //   java: 					.build();
-        //   java:
-        //   java: 			case OptionGroup optionGroup -> {
-        //   java: 				var yaclGroup = dev.isxander.yacl3.api.OptionGroup.createBuilder()
-        //   java: 						.name(optionGroup.name())
-        //   java: 						.description(OptionDescription.createBuilder()
-        //   java: 								.text(optionGroup.description())
-        //   java: 								.build())
-        //   java: 						.collapsed(optionGroup.collapsed());
-        //   java:
-        //   java: 				if (!optionGroup.options().isEmpty()) {
-        //   java: 					yaclGroup = yaclGroup.options(YACLOptionAdapter.toYaclOptions(manager, optionGroup.options()));
-        //   java: 				}
-        //   java:
-        //   java: 				yield yaclGroup.build();
-        //   java: 			}
-        //   java: 		};
-        todo!("fabric2seer: the value of this function is in a TODO above")
+    /// java: the `case ListOption listOption` arm of `toYaclOptionGroup`
+    pub fn to_yacl_list_option_group<T: Clone + PartialEq + 'static>(manager: &Arc<dyn AnyConfigManager>, list_option: Arc<dyn ListOption<T>>) -> Arc<dyn YOptionGroup> {
+        let binding = list_option.binding();
+        let get_binding = binding.clone();
+        let set_binding = binding.clone();
+        let controller_option = list_option.clone();
+        let initial = list_option.initial_value();
+        let patched = manager
+            .as_config_manager_impl()
+            .expect("ClassCastException: the manager is not a ConfigManagerImpl")
+            .is_option_patched(AnyOption::id(&*list_option).as_ref());
+        let as_option: Arc<dyn Option<Vec<T>>> = list_option.clone();
+        let yacl: Arc<dyn ylist_option::ListOption<T>> = ylist_option::create_builder::<T>()
+            .name(AnyOption::name(&*list_option))
+            .description(option_description::create_builder().text(AnyOption::description(&*list_option)).build())
+            .binding_3(binding.default_value(), move || get_binding.get(), move |value: Vec<T>| set_binding.set(value))
+            .controller(move |yacl_option: Arc<dyn YOption<T>>| controller_option.entry_controller().controller_yacl(yacl_option, controller_option.entry_type()))
+            .initial(move || initial())
+            .collapsed(OptionGroup::collapsed(&*list_option))
+            .available(list_option.modifiable() && !patched)
+            .flags(YACLOptionAdapter::to_yacl_option_flags(&*list_option))
+            .add_listeners(YACLOptionAdapter::to_yacl_option_event_listener(&as_option))
+            .build();
+        yacl
     }
 
+    /// java: the `case OptionGroup optionGroup` arm of `toYaclOptionGroup`
+    pub fn to_yacl_plain_option_group(manager: &Arc<dyn AnyConfigManager>, option_group: Arc<dyn OptionGroup>) -> Arc<dyn YOptionGroup> {
+        let mut yacl_group = yoption_group::create_builder()
+            .name(option_group.name())
+            .description(option_description::create_builder().text(option_group.description()).build())
+            .collapsed(option_group.collapsed());
+        if !option_group.options().is_empty() {
+            yacl_group = yacl_group.options(YACLOptionAdapter::to_yacl_options(manager, option_group.options()));
+        }
+        yacl_group.build()
+    }
 }
