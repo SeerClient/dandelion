@@ -53,3 +53,17 @@ impl std::fmt::Display for ConfigType {
         write!(f, "{}", ConfigType::to_string(self))
     }
 }
+
+/// `ConfigType` as a `java.lang.Enum` value type of an option (`Option.<ConfigType>createBuilder()` with an
+/// `EnumController`, as Skyblocker's `MiscCategory` builds its config-backend option).
+impl compat::JavaEnum for ConfigType {
+    fn enum_constants() -> Vec<Self> {
+        ConfigType::values()
+    }
+    fn ordinal(&self) -> i32 {
+        ConfigType::ordinal(*self)
+    }
+    fn name(&self) -> String {
+        ConfigType::name(*self).to_string()
+    }
+}
