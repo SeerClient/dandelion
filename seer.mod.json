@@ -52,6 +52,11 @@
         "fabric-api": "*",
         "fabric-language-kotlin": "*"
       }
+    },
+    "seer:pack": {
+      "include": [
+        "moulconfig.dll"
+      ]
     }
   }
 }
