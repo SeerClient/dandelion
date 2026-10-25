@@ -35,6 +35,10 @@ pub trait AnyEnumController {
     /// `MoulConfigOptionEditorAdapter.createMoulConfigEditor`: every constant of `option.type()` through `formatter()`,
     /// as its `getString()`.
     fn display_values(&self) -> Vec<String>;
+
+    /// java: the `(Enum<?>[]) constants` of that arm - `option.type().getEnumConstants()`, handed to the dropdown
+    /// through `GuiOptionEditorDropdownAccessor.setConstants`.
+    fn enum_constants(&self) -> Vec<Arc<dyn ::moulconfig::io::github::notenoughupdates::moulconfig::gui::editors::gui_option_editor_dropdown::EnumConstant>>;
 }
 
 /// java: static <T extends Enum<T>> Builder<T> createBuilder()

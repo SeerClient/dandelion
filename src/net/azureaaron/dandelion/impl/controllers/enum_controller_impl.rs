@@ -72,6 +72,16 @@ impl<T: compat::JavaEnum> AnyEnumController for EnumControllerImpl<T> {
         // java: Arrays.stream(option.type().getEnumConstants()).map(enumController.formatter()).map(t -> ((Component) t).getString())
         T::enum_constants().into_iter().map(|constant| (self.formatter)(constant).get_string()).collect()
     }
+
+    fn enum_constants(&self) -> Vec<Arc<dyn ::moulconfig::io::github::notenoughupdates::moulconfig::gui::editors::gui_option_editor_dropdown::EnumConstant>> {
+        // java: T[] constants = option.type().getEnumConstants();
+        T::enum_constants()
+            .into_iter()
+            .map(|constant| -> Arc<dyn ::moulconfig::io::github::notenoughupdates::moulconfig::gui::editors::gui_option_editor_dropdown::EnumConstant> {
+                Arc::new(crate::mixins::gui_option_editor_dropdown_accessor::JavaEnumConstant(constant))
+            })
+            .collect()
+    }
 }
 
 /// java: public static class EnumControllerBuilderImpl<T extends Enum<T>> implements EnumController.Builder<T>

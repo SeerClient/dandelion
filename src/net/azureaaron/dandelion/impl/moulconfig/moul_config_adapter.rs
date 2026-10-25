@@ -1,8 +1,4 @@
 //! Ported from net.azureaaron.dandelion.impl.moulconfig.MoulConfigAdapter.
-//!
-//! rust: port gap (GAPS_D.md D1) - MoulConfig's editor and screen (`MoulConfigEditor`, `MoulConfigScreenComponent`,
-//! `GuiContext`, `GuiElementComponent`) are not ported, so the screen cannot be built; the option processing
-//! before it is.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
@@ -15,7 +11,15 @@ use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_g
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::DandelionProcessedOption;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_definition::MoulConfigDefinition;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_editable_option_adapter::EditableOptionFactory;
+use ::moulconfig::io::github::notenoughupdates::moulconfig as moul;
 use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
+use moul::config::Config;
+use moul::gui::gui_context::GuiContext;
+use moul::gui::gui_element_component::GuiElementComponent;
+use moul::gui::moul_config_editor::MoulConfigEditor;
+use moul::platform::moul_config_screen_component::{MoulConfigScreenComponent, PreviousScreen};
+use moul::processor::processed_category::{self, ProcessedCategory};
+use std::cell::RefCell;
 
 /// java: private static final int ROOT_ACCORDION = -1; - the id of the accordion which is at the root of each category
 pub const ROOT_ACCORDION: i32 = -1;
@@ -42,17 +46,38 @@ impl MoulConfigAdapter {
     /// java: public Screen generateMoulConfigScreen(List<ConfigCategory> categories, @Nullable Screen parent, String search)
     pub fn generate_moul_config_screen(mut self, categories: &[Arc<dyn ConfigCategory>], parent: Option<compat::ScreenRef>, search: &str) -> compat::ScreenRef {
         self.generate_editable_options(categories);
+
         let processed_categories: Vec<Arc<DandelionProcessedCategory>> = self.generate_processed_categories(categories);
-        //   java: MoulConfigEditor<MoulConfigDefinition> editor = new MoulConfigEditor<>(ProcessedCategory.collect(processedCategories), this.configDefinition);
-        //   java: MoulConfigScreenComponent moulConfigScreenComponent = new MoulConfigScreenComponent(this.title, new GuiContext(new GuiElementComponent(editor)), parent);
-        //   java: moulConfigScreenComponent.getGuiContext().setCloseRequestHandler(() -> {
-        //   java:     Screens.getMinecraft(moulConfigScreenComponent).gui.setScreen(moulConfigScreenComponent.getPreviousScreen());
-        //   java:     this.configDefinition.saveNow();
-        //   java: });
-        //   java: if (!search.isEmpty()) { editor.search(search); }
-        //   java: return moulConfigScreenComponent;
-        let _ = (processed_categories, parent, search);
-        todo!("fabric2seer: `new MoulConfigEditor(..)` / `new MoulConfigScreenComponent(..)` - MoulConfig is not ported (GAPS_D.md D1)")
+        // java: MoulConfigEditor<MoulConfigDefinition> editor = new MoulConfigEditor<>(ProcessedCategory.collect(processedCategories), this.configDefinition);
+        let config_object: Arc<dyn Config> = self.config_definition.clone();
+        let editor = MoulConfigEditor::new(
+            processed_category::collect(processed_categories.into_iter().map(|c| -> Arc<dyn ProcessedCategory> { c })),
+            config_object,
+        );
+        // java: new MoulConfigScreenComponent(this.title, new GuiContext(new GuiElementComponent(editor)), parent) -
+        // `parent` is the screen this one returns to: the one that is up (kept below this one) or a new one
+        let (previous_screen, keep_parent) = match parent {
+            None | Some(compat::ScreenRef::Null) => (PreviousScreen::None, false),
+            Some(compat::ScreenRef::Current) | Some(compat::ScreenRef::Parent) => (PreviousScreen::Below, true),
+            Some(compat::ScreenRef::Mod { screen, .. }) => (PreviousScreen::Mod(RefCell::new(Some(screen))), false),
+        };
+        let moul_config_screen_component =
+            MoulConfigScreenComponent::new(self.title.clone(), GuiContext::new(GuiElementComponent::new(editor.clone())), previous_screen);
+        // Use a custom close handler to save the config and open the parent screen
+        let previous = moul_config_screen_component.get_previous_screen();
+        let config_definition = self.config_definition.clone();
+        moul_config_screen_component.get_gui_context().set_close_request_handler(Some(Arc::new(move || {
+            // java: Screens.getMinecraft(moulConfigScreenComponent).gui.setScreen(moulConfigScreenComponent.getPreviousScreen());
+            previous.set_screen();
+            // java: this.configDefinition.saveNow();
+            config_definition.save_now();
+        })));
+
+        if !search.is_empty() {
+            editor.search(search);
+        }
+
+        compat::ScreenRef::of_box(Box::new(moul_config_screen_component), keep_parent)
     }
 
     /// java: private void generateEditableOptions(List<ConfigCategory> categories)
@@ -86,7 +111,7 @@ impl MoulConfigAdapter {
                     let group_accordion_id = next_accordion_id;
                     next_accordion_id += 1;
                     // Create the accordion/group option under the root accordion
-                    processed_options.push(Arc::new(DandelionProcessedGroupOption::new(group.clone(), ROOT_ACCORDION, group_accordion_id, self.config_definition.clone())));
+                    processed_options.push(DandelionProcessedGroupOption::new(group.clone(), ROOT_ACCORDION, group_accordion_id, self.config_definition.clone()));
                     // Add the options in this group under the generated accordion (grouping)
                     self.add_processed_options_to_group(&mut processed_options, &group.options(), group_accordion_id);
                 }

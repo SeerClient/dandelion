@@ -12,9 +12,13 @@ use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_o
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::editor::dandelion_key_mapping_editor::DandelionKeyMappingEditor;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::editor::dandelion_label_editor::DandelionLabelEditor;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_definition::{wrap_component, MoulConfigDefinition};
+use ::moulconfig::io::github::notenoughupdates::moulconfig as moul;
 use mcrust::net::minecraft::client::key_mapping::KeyMapping;
 use mcrust::net::minecraft::network::chat::mutable_component::MutableComponent;
-use std::any::Any;
+use moul::config::Config;
+use moul::gui::editors::gui_option_editor_button::{GuiOptionEditorButton, Runnable};
+use moul::gui::gui_option_editor::GuiOptionEditor;
+use std::any::{Any, TypeId};
 
 /// java: `BiFunction<Integer, MoulConfigDefinition, DandelionProcessedEditableOption<?>>`
 pub type EditableOptionFactory = Arc<dyn Fn(i32, Arc<MoulConfigDefinition>) -> Arc<dyn DandelionProcessedOption>>;
@@ -51,7 +55,7 @@ impl MoulConfigEditableOptionAdapter {
                     config_definition,
                     EditableOptionClass {
                         create_editor: Box::new(move |this: &DandelionProcessedEditableOption<T>| {
-                            editor_option.controller().controller_moul_config(editor_option.clone(), this.as_processed_option(), &editor_definition)
+                            editor_option.controller().controller_moul_config(editor_option.clone(), DandelionProcessedOption::as_processed_option(this), &editor_definition)
                         }),
                         get_type: None,
                         // java: return ((Integer) super.get()).floatValue();
@@ -79,7 +83,7 @@ impl MoulConfigEditableOptionAdapter {
                 config_definition,
                 EditableOptionClass {
                     create_editor: Box::new(move |this: &DandelionProcessedEditableOption<T>| {
-                        editor_option.controller().controller_moul_config(editor_option.clone(), this.as_processed_option(), &editor_definition)
+                        editor_option.controller().controller_moul_config(editor_option.clone(), DandelionProcessedOption::as_processed_option(this), &editor_definition)
                     }),
                     get_type: None,
                     get: None,
@@ -103,17 +107,21 @@ impl MoulConfigEditableOptionAdapter {
                     // java: ButtonOption instance = (ButtonOption) this.option;
                     //       return new GuiOptionEditorButton(this, -1, MoulConfigPlatform.wrap(instance.prompt()), this.getConfig());
                     create_editor: Box::new(move |this: &DandelionProcessedEditableOption<ScreenConsumer>| {
-                        let _ = (this, wrap_component(&editor_button.prompt()));
-                        todo!("fabric2seer: `new GuiOptionEditorButton(..)` - MoulConfig is not ported (GAPS_D.md D1)")
+                        let config: Arc<dyn Config> = DandelionProcessedOption::get_config(this);
+                        let editor: Arc<dyn GuiOptionEditor> = GuiOptionEditorButton::new(
+                            DandelionProcessedOption::as_processed_option(this),
+                            -1,
+                            Some(wrap_component(&editor_button.prompt())),
+                            config,
+                        );
+                        editor
                     }),
                     // java: return Runnable.class;
-                    get_type: Some(Box::new(|_this: &DandelionProcessedEditableOption<ScreenConsumer>| {
-                        crate::unresolved::Type::of(Arc::new(std::any::TypeId::of::<Arc<dyn Fn()>>()))
-                    })),
+                    get_type: Some(Box::new(|_this: &DandelionProcessedEditableOption<ScreenConsumer>| TypeId::of::<Runnable>())),
                     // java: return (Runnable) () -> ((ButtonOption) this.option).action().accept(Minecraft.getInstance().gui.screen());
                     get: Some(Box::new(move |_this: &DandelionProcessedEditableOption<ScreenConsumer>| -> Arc<dyn Any> {
                         let button = get_button.clone();
-                        let runnable: Arc<dyn Fn()> = Arc::new(move || button.action().accept(compat::ScreenRef::Current));
+                        let runnable: Runnable = Arc::new(move || button.action().accept(compat::ScreenRef::Current));
                         Arc::new(runnable)
                     })),
                     set: None,
@@ -134,7 +142,9 @@ impl MoulConfigEditableOptionAdapter {
                 EditableOptionClass {
                     // java: return new DandelionKeyMappingEditor(this, ((KeyMappingOption) this.option).keyMapping());
                     create_editor: Box::new(move |this: &DandelionProcessedEditableOption<KeyMapping>| {
-                        crate::unresolved::GuiOptionEditor::of(Arc::new(DandelionKeyMappingEditor::new(this.as_processed_option(), editor_key_mapping.key_mapping())))
+                        let editor: Arc<dyn GuiOptionEditor> =
+                            DandelionKeyMappingEditor::new(DandelionProcessedOption::as_processed_option(this), editor_key_mapping.key_mapping());
+                        editor
                     }),
                     get_type: None,
                     get: None,
@@ -156,7 +166,9 @@ impl MoulConfigEditableOptionAdapter {
                 EditableOptionClass {
                     // java: return new DandelionLabelEditor(this, MoulConfigPlatform.wrap(((LabelOption) this.option).label()));
                     create_editor: Box::new(move |this: &DandelionProcessedEditableOption<MutableComponent>| {
-                        crate::unresolved::GuiOptionEditor::of(Arc::new(DandelionLabelEditor::new(this.as_processed_option(), wrap_component(&editor_label.label()))))
+                        let editor: Arc<dyn GuiOptionEditor> =
+                            DandelionLabelEditor::new(DandelionProcessedOption::as_processed_option(this), wrap_component(&editor_label.label()));
+                        editor
                     }),
                     get_type: None,
                     get: None,

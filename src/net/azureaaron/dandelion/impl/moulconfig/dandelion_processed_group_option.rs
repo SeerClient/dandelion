@@ -9,9 +9,15 @@ use crate::net::azureaaron::dandelion::api::option_group::OptionGroup;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_processed_option::{DandelionProcessedOption, DandelionProcessedOptionBase};
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::dandelion_search_tag::DandelionSearchTag;
 use crate::net::azureaaron::dandelion::r#impl::moulconfig::moul_config_definition::{wrap_component, MoulConfigDefinition};
+use ::moulconfig::io::github::notenoughupdates::moulconfig as moul;
 use mcrust::net::minecraft::network::chat::component;
 use mcrust::net::minecraft::network::chat::component::Component as _;
-use std::any::Any;
+use moul::annotations::search_tag::SearchTag;
+use moul::common::text::structured_text::StructuredText;
+use moul::gui::editors::gui_option_editor_accordion::GuiOptionEditorAccordion;
+use moul::gui::gui_option_editor::GuiOptionEditor;
+use moul::processor::processed_option::{ProcessedOption, Type};
+use std::any::{Any, TypeId};
 
 /// java: public class DandelionProcessedGroupOption extends DandelionProcessedOption
 pub struct DandelionProcessedGroupOption {
@@ -25,8 +31,11 @@ pub struct DandelionProcessedGroupOption {
 
 impl DandelionProcessedGroupOption {
     /// java: protected DandelionProcessedGroupOption(OptionGroup group, int rootAccordionId, int categoryAccordionId, Config config)
-    pub fn new(group: Arc<dyn OptionGroup>, root_accordion_id: i32, category_accordion_id: i32, config: Arc<MoulConfigDefinition>) -> Self {
-        Self { base: DandelionProcessedOptionBase::new(root_accordion_id, config), group, category_accordion_id }
+    pub fn new(group: Arc<dyn OptionGroup>, root_accordion_id: i32, category_accordion_id: i32, config: Arc<MoulConfigDefinition>) -> Arc<Self> {
+        let this = Arc::new(Self { base: DandelionProcessedOptionBase::new(root_accordion_id, config), group, category_accordion_id });
+        let as_option: Arc<dyn ProcessedOption> = this.clone();
+        *this.base.this.borrow_mut() = Some(Arc::downgrade(&as_option));
+        this
     }
 }
 
@@ -36,12 +45,12 @@ impl DandelionProcessedOption for DandelionProcessedGroupOption {
     }
 
     /// java: @Override public StructuredText getName()
-    fn get_name(&self) -> crate::unresolved::StructuredText {
+    fn get_name(&self) -> Arc<dyn StructuredText> {
         wrap_component(&self.group.name())
     }
 
     /// java: @Override public StructuredText getDescription()
-    fn get_description(&self) -> crate::unresolved::StructuredText {
+    fn get_description(&self) -> Arc<dyn StructuredText> {
         let mut concat = component::empty();
         for line in self.group.description() {
             concat = concat.append(line);
@@ -50,11 +59,11 @@ impl DandelionProcessedOption for DandelionProcessedGroupOption {
     }
 
     /// java: @Override public SearchTag[] getSearchTags()
-    fn get_search_tags(&self) -> Vec<crate::unresolved::SearchTag> {
+    fn get_search_tags(&self) -> Vec<Arc<dyn SearchTag>> {
         self.group
             .tags()
             .iter()
-            .map(|tag| crate::unresolved::SearchTag::of(Arc::new(DandelionSearchTag::new(tag.get_string()))))
+            .map(|tag| -> Arc<dyn SearchTag> { Arc::new(DandelionSearchTag::new(tag.get_string())) })
             .collect()
     }
 
@@ -64,8 +73,8 @@ impl DandelionProcessedOption for DandelionProcessedGroupOption {
     }
 
     /// java: @Override public Type getType() - `Void.class`
-    fn get_type(&self) -> crate::unresolved::Type {
-        crate::unresolved::Type::of(Arc::new(std::any::TypeId::of::<()>()))
+    fn get_type(&self) -> Type {
+        TypeId::of::<()>()
     }
 
     /// java: @Override public boolean set(Object value)
@@ -78,16 +87,14 @@ impl DandelionProcessedOption for DandelionProcessedGroupOption {
     fn get_debug_declaration_location(&self) -> Option<String> {
         match self.group.id() {
             Some(id) => Some(id.to_string()),
-            None => {
-                let _ = self.get_name();
-                todo!("fabric2seer: StructuredText.getText() - MoulConfig is not ported (GAPS_D.md D1)")
-            }
+            None => Some(DandelionProcessedOption::get_name(self).get_text()),
         }
     }
 
-    /// java: @Override protected GuiOptionEditor createEditor()
-    fn create_editor(&self) -> crate::unresolved::GuiOptionEditor {
-        // java: return new GuiOptionEditorAccordion(this, this.categoryAccordionId);
-        todo!("fabric2seer: `new GuiOptionEditorAccordion(..)` - MoulConfig is not ported (GAPS_D.md D1)")
+    /// java: @Override protected GuiOptionEditor createEditor() - `new GuiOptionEditorAccordion(this, this.categoryAccordionId)`
+    fn create_editor(&self) -> Arc<dyn GuiOptionEditor> {
+        GuiOptionEditorAccordion::new(self.as_processed_option(), self.category_accordion_id)
     }
 }
+
+crate::dandelion_processed_option!(DandelionProcessedGroupOption);

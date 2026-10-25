@@ -15,6 +15,8 @@ crate-type = ["dylib", "rlib"]
 [dependencies]
 mcrust = { path = "C:/Users/y64/Desktop/McRust/RustSrc" }
 yacl = { path = "C:/Users/y64/Desktop/McRust/mods-src/yacl" }
+# MoulConfig 4.7.2 (Dandelion shades it in Java): the MoulConfig backend's library
+moulconfig = { path = "C:/Users/y64/Desktop/McRust/mods-src/moulconfig" }
 # used by the translated classes (fabric2seer)
 fancy-regex = "0.14"
 parking_lot = "0.12"

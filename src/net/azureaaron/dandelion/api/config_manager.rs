@@ -27,6 +27,14 @@ pub trait ConfigManager<T: 'static>: AnyConfigManager {
     /// highly discouraged. Note: this instance is NEVER saved as the user's config! Do not write updated values to it.
     fn instance(&self) -> compat::Shared<T>;
 
+    /// Port-only (no Java counterpart): a counter that changes every time `instance()` starts answering a
+    /// different object. A caller that keeps something derived from `instance()` can compare one number instead
+    /// of fetching (and reference-counting) the instance on every call. `None`: the implementation keeps no
+    /// counter, so the caller must compare `instance()` itself.
+    fn instance_epoch(&self) -> Option<u64> {
+        None
+    }
+
     /// java: T unpatchedInstance();
     fn unpatched_instance(&self) -> compat::Shared<T>;
 

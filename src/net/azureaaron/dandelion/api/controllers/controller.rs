@@ -51,9 +51,9 @@ pub trait Controller<T: Clone + PartialEq + 'static>: compat::DynAny {
     fn controller_moul_config(
         &self,
         option: Arc<dyn Option<T>>,
-        moul_config_option: crate::unresolved::ProcessedOption,
+        moul_config_option: Arc<dyn ::moulconfig::io::github::notenoughupdates::moulconfig::processor::processed_option::ProcessedOption>,
         config_definition: &Arc<MoulConfigDefinition>,
-    ) -> crate::unresolved::GuiOptionEditor {
+    ) -> Arc<dyn ::moulconfig::io::github::notenoughupdates::moulconfig::gui::gui_option_editor::GuiOptionEditor> {
         MoulConfigOptionEditorAdapter::create_moul_config_editor(option, moul_config_option, config_definition)
     }
 

@@ -12,7 +12,17 @@ use crate::net::azureaaron::dandelion::r#impl::gson_config_serializer::GsonConfi
 use crate::net::azureaaron::dandelion::r#impl::patching::config_patcher::ConfigPatcher;
 use crate::net::azureaaron::dandelion::r#impl::utils::reflection_utils::ReflectionUtils;
 use mcrust::net::minecraft::resources::identifier::Identifier;
-use std::cell::RefCell;
+/// Java's plain fields, read from any thread (skin-download workers read the
+/// config too): a lock instead of a `RefCell`, so a read racing a write waits
+/// rather than panicking with "already mutably borrowed".
+pub struct RefCell<T>(std::sync::RwLock<T>);
+impl<T> RefCell<T> {
+    pub fn new(v: T) -> Self { RefCell(std::sync::RwLock::new(v)) }
+    pub fn borrow(&self) -> std::sync::RwLockReadGuard<'_, T> { self.0.read().unwrap_or_else(|p| p.into_inner()) }
+    pub fn borrow_mut(&self) -> std::sync::RwLockWriteGuard<'_, T> { self.0.write().unwrap_or_else(|p| p.into_inner()) }
+}
+unsafe impl<T> Sync for RefCell<T> {}
+unsafe impl<T> Send for RefCell<T> {}
 
 /// java: `ConfigManagerImpl<?>` - the members the backends reach through `(ConfigManagerImpl<?>) manager`.
 pub trait AnyConfigManagerImpl {
@@ -37,6 +47,8 @@ pub struct ConfigManagerImpl<T: 'static> {
     pub patches: RefCell<Vec<Arc<dyn ConfigPatch>>>,
     /// java: private T instance;
     pub instance: RefCell<compat::Shared<T>>,
+    /// Port-only: bumped each time `instance` is replaced (see `ConfigManager::instance_epoch`).
+    pub instance_epoch: std::sync::atomic::AtomicU64,
     /// java: private T unpatchedInstance;
     pub unpatched_instance: RefCell<compat::Shared<T>>,
 }
@@ -51,6 +63,7 @@ impl<T: 'static> ConfigManagerImpl<T> {
             let serializer: Box<dyn ConfigSerializer<T>> = Box::new(GsonConfigSerializer::new(this.clone(), path.clone(), gson.clone()));
             ConfigManagerImpl {
                 instance: RefCell::new(compat::shared(ReflectionUtils::create_new_default_instance(&config_class))),
+                instance_epoch: std::sync::atomic::AtomicU64::new(0),
                 unpatched_instance: RefCell::new(compat::shared(ReflectionUtils::create_new_default_instance(&config_class))),
                 config_class,
                 path,
@@ -131,6 +144,10 @@ impl<T: 'static> ConfigManager<T> for ConfigManagerImpl<T> {
         self.instance.borrow().clone()
     }
 
+    fn instance_epoch(&self) -> Option<u64> {
+        Some(self.instance_epoch.load(std::sync::atomic::Ordering::Acquire))
+    }
+
     /// java: @Override public T unpatchedInstance()
     fn unpatched_instance(&self) -> compat::Shared<T> {
         self.unpatched_instance.borrow().clone()
@@ -161,6 +178,9 @@ impl<T: 'static> ConfigManager<T> for ConfigManagerImpl<T> {
         let copy = compat::read(&unpatched, |source| self.serializer.copy_object(source));
         let instance = compat::shared(copy);
         *self.instance.borrow_mut() = instance.clone();
+        // (published at the same point the object changes, so an epoch read before `instance()` never vouches
+        // for an object newer than itself)
+        self.instance_epoch.fetch_add(1, std::sync::atomic::Ordering::Release);
         let patches = self.patches.borrow().clone();
         ConfigPatcher::apply_patches(&instance, &self.config_class, &patches);
     }

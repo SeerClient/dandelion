@@ -1,62 +1,93 @@
-//! Ported from net.azureaaron.dandelion.impl.moulconfig.editor.DandelionNumberSliderEditor by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.moulconfig.editor.DandelionNumberSliderEditor.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
+use ::moulconfig::io::github::notenoughupdates::moulconfig as moul;
+use mcrust::java::text::decimal_format::DecimalFormat;
+use mcrust::java::text::decimal_format_symbols::{self, Locale};
+use moul::common::i_minecraft;
+use moul::common::text::structured_text::{self, StructuredText};
+use moul::gui::component::align_component::AlignComponent;
+use moul::gui::component::row_component::RowComponent;
+use moul::gui::component::slider_component::SliderComponent;
+use moul::gui::component::text_component::{TextAlignment, TextComponent};
+use moul::gui::editors::component_editor::{self, ComponentEditor, ComponentEditorBase};
+use moul::gui::gui_component::GuiComponent;
+use moul::gui::gui_option_editor::GuiOptionEditor;
+use moul::gui::horizontal_align::HorizontalAlign;
+use moul::gui::vertical_align::VerticalAlign;
+use moul::observer::get_setter::{self, GetSetter};
+use moul::processor::processed_option::{self, ProcessedOption};
+use std::any::Any;
 
-// TODO(fabric2seer): static call NumberFormat.getInstance(..)
-//   java: private static final NumberFormat FORMATTER = Util.make(NumberFormat.getInstance(Locale.CANADA), nf -> nf.setMaximumFractionDigits(2));
 /// java: private static final NumberFormat FORMATTER = Util.make(NumberFormat.getInstance(Locale.CANADA), nf -> nf.setMaximumFractionDigits(2));
-pub static FORMATTER: compat::MainThread<crate::unresolved::NumberFormat> = compat::MainThread::new(|| todo!("fabric2seer: the initialiser of `FORMATTER` - see the TODO above"));
+///
+/// `NumberFormat.getInstance(Locale.CANADA)` is the locale's number pattern `#,##0.###` (grouping, up to three
+/// fraction digits, HALF_EVEN); `setMaximumFractionDigits(2)` makes it `#,##0.##`. en-CA's symbols are the US/ROOT ones
+/// (`.` `,` `-`).
+pub static FORMATTER: LazyLock<DecimalFormat> =
+    LazyLock::new(|| DecimalFormat::new("#,##0.##", decimal_format_symbols::get_instance(Locale::Us)));
 
 /// java: public class DandelionNumberSliderEditor extends ComponentEditor
 pub struct DandelionNumberSliderEditor {
-    /// java: extends io.github.notenoughupdates.moulconfig.gui.editors.ComponentEditor
-    pub base: crate::unresolved::ComponentEditor,
+    base: ComponentEditorBase,
     /// java: protected final GuiComponent component;
-    pub component: Option<crate::unresolved::GuiComponent>,
-}
-
-impl std::ops::Deref for DandelionNumberSliderEditor {
-    type Target = crate::unresolved::ComponentEditor;
-    fn deref(&self) -> &Self::Target {
-        &self.base
-    }
-}
-
-impl std::ops::DerefMut for DandelionNumberSliderEditor {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.base
-    }
+    pub component: Arc<dyn GuiComponent>,
 }
 
 impl DandelionNumberSliderEditor {
-    /// java: @SuppressWarnings("unchecked") public DandelionNumberSliderEditor(ProcessedOption option, float minValue, float maxValue, float minStep)
-    pub fn new(mut option: crate::unresolved::ProcessedOption, mut min_value: f32, mut max_value: f32, mut min_step: f32) -> Self {
-        // TODO(fabric2seer): `new ComponentEditor(..)`: the port has no `ComponentEditor::new`
-        //   java: super(option);
-        let mut this: Self = todo!("constructor");
-        // TODO(fabric2seer): `new RowComponent(..)`
-        //   java: this.component = this.wrapComponent(
-        //   java: 				new RowComponent(
-        //   java: 						new AlignComponent(
-        //   java: 								new TextComponent(IMinecraft.INSTANCE.getDefaultFontRenderer(),
-        //   java: 										() -> StructuredText.of(FORMATTER.format(((Float) option.get()).doubleValue())),
-        //   java: 										20,
-        //   java: 										TextComponent.TextAlignment.CENTER, false, false),
-        //   java: 								GetSetter.constant(HorizontalAlign.CENTER),
-        //   java: 								GetSetter.constant(VerticalAlign.CENTER)
-        //   java: 								),
-        //   java: 						new SliderComponent((GetSetter<Float>) option.intoProperty(), minValue, maxValue, minStep, 40)
-        //   java: 						)
-        //   java: 				);
-        this
+    /// java: public DandelionNumberSliderEditor(ProcessedOption option, float minValue, float maxValue, float minStep)
+    pub fn new(option: Arc<dyn ProcessedOption>, min_value: f32, max_value: f32, min_step: f32) -> Arc<Self> {
+        //if (minStep < 0) minStep = 0.01f;
+        let text_option = option.clone();
+        let horizontal = get_setter::constant(HorizontalAlign::Center);
+        let vertical = get_setter::constant(VerticalAlign::Center);
+        let component = component_editor::wrap_component(
+            &option,
+            RowComponent::new(vec![
+                AlignComponent::new(
+                    TextComponent::new(
+                        i_minecraft::instance().get_default_font_renderer(),
+                        // java: () -> StructuredText.of(FORMATTER.format(((Float) option.get()).doubleValue()))
+                        Arc::new(move || -> Arc<dyn StructuredText> {
+                            let value = *text_option.get().downcast_ref::<f32>().expect("ClassCastException: the option's value is not a Float");
+                            structured_text::of(&FORMATTER.format(value as f64))
+                        }),
+                        20,
+                        TextAlignment::Center,
+                        false,
+                        false,
+                    ),
+                    Arc::new(move || horizontal.get()),
+                    Arc::new(move || vertical.get()),
+                ) as Arc<dyn GuiComponent>,
+                // java: new SliderComponent((GetSetter<Float>) option.intoProperty(), minValue, maxValue, minStep, 40)
+                SliderComponent::new(processed_option::into_property_as::<f32>(&option), min_value, max_value, min_step, 40) as Arc<dyn GuiComponent>,
+            ]),
+        );
+        Arc::new(Self { base: ComponentEditorBase::new(option), component })
+    }
+}
+
+impl ComponentEditor for DandelionNumberSliderEditor {
+    fn component_editor_base(&self) -> &ComponentEditorBase {
+        &self.base
     }
 
     /// java: @Override public GuiComponent getDelegate()
-    pub fn get_delegate(&self) -> crate::unresolved::GuiComponent {
-        return self.component.clone().unwrap();
+    fn get_delegate(&self) -> Arc<dyn GuiComponent> {
+        self.component.clone()
     }
-
 }
 
-// NOTE(fabric2seer): getDelegate override(s) of ComponentEditor - the port dispatches its own calls, so these run only where the mod calls them; hook the port's method to make the game call them
+impl GuiOptionEditor for DandelionNumberSliderEditor {
+    ::moulconfig::component_editor_overrides!();
+
+    fn get_height(&self) -> i32 {
+        component_editor::get_height(self)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}

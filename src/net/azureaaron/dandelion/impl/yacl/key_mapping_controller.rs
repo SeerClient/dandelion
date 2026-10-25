@@ -25,7 +25,7 @@ use std::cell::Cell;
 /// `key.mouse` with the button number.
 fn key_display_name(key: &Key) -> MutableComponent {
     let minecraft = compat::minecraft();
-    match key.get_display_name(&|code, _scancode| minecraft.key_names.get(&code).cloned(), &|name| language::has(name)) {
+    match key.get_display_name(&|code| minecraft.key_names.get(&code).cloned(), &|name| language::has(name)) {
         DisplayName::Literal(text) => component::literal(&text),
         DisplayName::Translatable(key) => component::translatable(&key),
         DisplayName::MouseIndex(index) => component::translatable_args("key.mouse", vec![FormattedText::of(index.to_string())]),
@@ -99,7 +99,7 @@ impl ControllerWidget for KeyCodeControllerElement {
     /// java: @Override public boolean keyPressed(KeyEvent event)
     fn key_pressed(&self, event: &KeyEvent) -> bool {
         if self.awaiting_key_press.get() {
-            self.control.option().request_set(Type::Keysym.get_or_create(event.key()));
+            self.control.option().request_set(Type::Keyboard.get_or_create(event.key()));
             self.awaiting_key_press.set(false);
             return true;
         }

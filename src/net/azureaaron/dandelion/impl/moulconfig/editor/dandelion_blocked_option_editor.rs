@@ -1,75 +1,82 @@
-//! Ported from net.azureaaron.dandelion.impl.moulconfig.editor.DandelionBlockedOptionEditor by fabric2seer.
+//! Ported from net.azureaaron.dandelion.impl.moulconfig.editor.DandelionBlockedOptionEditor.
 
 #[allow(unused_imports)]
 use crate::prelude::*;
+use ::moulconfig::io::github::notenoughupdates::moulconfig as moul;
+use mcrust::net::minecraft::network::chat::component;
+use moul::common::i_minecraft;
+use moul::common::my_resource_location::MyResourceLocation;
+use moul::common::render_context::RenderContext;
+use moul::gui::gui_option_editor::{GuiOptionEditor, GuiOptionEditorBase};
+use moul::gui::keyboard_event::KeyboardEvent;
+use moul::gui::mouse_event::MouseEvent;
+use moul::platform::moul_config_platform::MoulConfigPlatform;
+use std::any::Any;
 
-// TODO(fabric2seer): static call MoulConfigPlatform.wrap(..)
-//   java: private static final MyResourceLocation BLOCKED_OVERLAY = MoulConfigPlatform.wrap(Dandelion.id("textures/gui/option_blocked.png"));
 /// java: private static final MyResourceLocation BLOCKED_OVERLAY = MoulConfigPlatform.wrap(Dandelion.id("textures/gui/option_blocked.png"));
-pub static BLOCKED_OVERLAY: compat::MainThread<crate::unresolved::MyResourceLocation> = compat::MainThread::new(|| todo!("fabric2seer: the initialiser of `BLOCKED_OVERLAY` - see the TODO above"));
+///
+/// Special thanks to nea for this asset.
+pub static BLOCKED_OVERLAY: LazyLock<MyResourceLocation> =
+    LazyLock::new(|| MoulConfigPlatform::wrap_identifier(&crate::entry::dandelion::id("textures/gui/option_blocked.png")));
 
 /// java: public class DandelionBlockedOptionEditor extends GuiOptionEditor
 pub struct DandelionBlockedOptionEditor {
-    /// java: extends io.github.notenoughupdates.moulconfig.gui.GuiOptionEditor
-    pub gui_option_editor: crate::unresolved::GuiOptionEditor,
+    /// java: extends GuiOptionEditor
+    editor: GuiOptionEditorBase,
     /// java: private final GuiOptionEditor base;
-    pub base: crate::unresolved::GuiOptionEditor,
-}
-
-impl std::ops::Deref for DandelionBlockedOptionEditor {
-    type Target = crate::unresolved::GuiOptionEditor;
-    fn deref(&self) -> &Self::Target {
-        &self.gui_option_editor
-    }
-}
-
-impl std::ops::DerefMut for DandelionBlockedOptionEditor {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.gui_option_editor
-    }
+    pub base: Arc<dyn GuiOptionEditor>,
 }
 
 impl DandelionBlockedOptionEditor {
     /// java: public DandelionBlockedOptionEditor(GuiOptionEditor base)
-    pub fn new(mut base: crate::unresolved::GuiOptionEditor) -> Self {
-        let __init_base = base.clone();
-        // TODO(fabric2seer): `.getOption(..)` on a GuiOptionEditor
-        //   java: super(base.getOption());
-        let mut this: Self = todo!("constructor");
-        this
+    pub fn new(base: Arc<dyn GuiOptionEditor>) -> Arc<Self> {
+        Arc::new(Self { editor: GuiOptionEditorBase::new(base.get_option()), base })
+    }
+}
+
+impl GuiOptionEditor for DandelionBlockedOptionEditor {
+    fn editor_base(&self) -> &GuiOptionEditorBase {
+        &self.editor
     }
 
     /// java: @Override public void render(RenderContext context, int x, int y, int width)
-    pub fn render(&mut self, context: &crate::unresolved::RenderContext, mut x: i32, mut y: i32, mut width: i32) {
-        // TODO(fabric2seer): `.render(..)` on a GuiOptionEditor
-        //   java: this.base.render(context, x, y, width);
-        // TODO(fabric2seer): `.drawColoredRect(..)` on a RenderContext
-        //   java: context.drawColoredRect(x, y, x + width, y + this.getHeight(), 0x80000000);
-        // TODO(fabric2seer): `GuiOptionEditor.getHeight` has no Rust method in the port (looked for `get_height` in GuiOptionEditor and JavaSrc)
-        // rust: let mut icon_width: f32 = ((self.get_height() * 96.0f32) / (64 as f32));
-        let mut icon_width: f32 = todo!("fabric2seer: the initialiser of `iconWidth` (TODO above)");
-        // TODO(fabric2seer): `.drawTexturedRect(..)` on a RenderContext
-        //   java: context.drawTexturedRect(BLOCKED_OVERLAY, x, y, iconWidth, this.getHeight());
-        // TODO(fabric2seer): static call MoulConfigPlatform.wrap(..)
-        //   java: StructuredText text = MoulConfigPlatform.wrap(Component.translatable("text.dandelion.option.unavailable"));
-        let mut text: crate::unresolved::StructuredText = todo!("fabric2seer: the initialiser of `text` (TODO above)");
-        // TODO(fabric2seer): static field IMinecraft.INSTANCE
-        //   java: IFontRenderer font = IMinecraft.INSTANCE.getDefaultFontRenderer();
-        let mut font: crate::unresolved::IFontRenderer = todo!("fabric2seer: the initialiser of `font` (TODO above)");
-        // TODO(fabric2seer): `.drawStringScaledMaxWidth(..)` on a RenderContext
-        //   java: context.drawStringScaledMaxWidth(text, font, (int) (x + iconWidth), (int) (y + this.getHeight() / 2f  - font.getHeight() / 2f), true, (int) (width - iconWidth), 0xFFFF4444);
+    fn render(&self, context: &Arc<dyn RenderContext>, x: i32, y: i32, width: i32) {
+        self.base.render(context, x, y, width);
+
+        // Darken the original option
+        context.draw_colored_rect(x as f32, y as f32, (x + width) as f32, (y + self.get_height()) as f32, 0x80000000u32 as i32);
+
+        // Draw blocked icon
+        let icon_width: f32 = self.get_height() as f32 * 96.0 / 64.0;
+        context.draw_textured_rect(&BLOCKED_OVERLAY, x as f32, y as f32, icon_width, self.get_height() as f32);
+
+        // Clarifying Text
+        let text = MoulConfigPlatform::wrap_component(component::translatable("text.dandelion.option.unavailable"));
+        let font = i_minecraft::instance().get_default_font_renderer();
+        context.draw_string_scaled_max_width(
+            &text,
+            &*font,
+            (x as f32 + icon_width) as i32,
+            (y as f32 + self.get_height() as f32 / 2.0 - font.get_height() as f32 / 2.0) as i32,
+            true,
+            (width as f32 - icon_width) as i32,
+            0xFFFF4444u32 as i32,
+        );
     }
 
     /// java: @Override public boolean mouseInput(int x, int y, int width, int mouseX, int mouseY, MouseEvent mouseEvent)
-    pub fn mouse_input(&self, mut x: i32, mut y: i32, mut width: i32, mut mouse_x: i32, mut mouse_y: i32, mouse_event: &crate::unresolved::MouseEvent) -> bool {
-        return false;
+    fn mouse_input(&self, x: i32, y: i32, width: i32, mouse_x: i32, mouse_y: i32, mouse_event: &MouseEvent) -> bool {
+        let _ = (x, y, width, mouse_x, mouse_y, mouse_event);
+        false
     }
 
     /// java: @Override public boolean keyboardInput(KeyboardEvent event)
-    pub fn keyboard_input(&self, event: &crate::unresolved::KeyboardEvent) -> bool {
-        return false;
+    fn keyboard_input(&self, event: &KeyboardEvent) -> bool {
+        let _ = event;
+        false
     }
 
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
-
-// NOTE(fabric2seer): keyboardInput, mouseInput, render override(s) of GuiOptionEditor - the port dispatches its own calls, so these run only where the mod calls them; hook the port's method to make the game call them
